@@ -113,6 +113,8 @@ import {
   CloudSyncStatus,
 } from './services/firebase';
 import {
+  DEFAULT_QUOTATION_TERMS,
+  formatTermsListToText,
   computeOverallProfitLossSummary,
   computeCustomerInvoiceFinance,
   computeShippingPaymentFinance,
@@ -901,6 +903,8 @@ export default function App() {
       netProfitLossJpy: costing.netProfitLossJpy,
       profitMarginPct: costing.profitMarginPct,
       remarks: costing.remarks || '',
+      termsList: [...DEFAULT_QUOTATION_TERMS],
+      termsAndConditions: formatTermsListToText(DEFAULT_QUOTATION_TERMS),
       linkedCostingId: costing.id,
       linkedCostingNo: costing.costingNo,
       createdAt: costing.createdAt,

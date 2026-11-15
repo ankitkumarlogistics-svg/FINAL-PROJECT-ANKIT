@@ -225,11 +225,9 @@ export const QuotationFormModal: React.FC<QuotationFormModalProps> = ({
         bookingNo: '',
         shipmentNo: '',
         blNo: '',
-        customerName: customers[0]?.name || '',
-        customerAddress: customers[0]
-          ? [customers[0].addressLine1, customers[0].addressLine2].filter(Boolean).join(', ')
-          : '',
-        customerEmail: customers[0]?.email || '',
+        customerName: '',
+        customerAddress: '',
+        customerEmail: '',
         portFrom: 'NAGOYA',
         portTo: 'DUBLIN',
         shippingCompany: 'CMA-CGM',
@@ -731,16 +729,16 @@ export const QuotationFormModal: React.FC<QuotationFormModalProps> = ({
                 </div>
               </div>
 
-              {/* Section 2: Customer Details */}
+              {/* Section 2: Internal Customer Reference (Hidden from Quotation PDF) */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-slate-200">
                 <div>
                   <label className="block font-bold text-slate-700 uppercase mb-1">
-                    TO (Customer Name) *
+                    Customer Name (Internal Ref — Not on PDF)
                   </label>
                   <input
                     type="text"
-                    required
                     list="quo-customer-list"
+                    placeholder="Optional (leave blank for multi-customer quote)"
                     value={formData.customerName || ''}
                     onChange={(e) => handleCustomerSelect(e.target.value)}
                     className="w-full px-2.5 py-2 text-xs border border-slate-300 rounded-lg font-semibold"
@@ -754,10 +752,11 @@ export const QuotationFormModal: React.FC<QuotationFormModalProps> = ({
 
                 <div>
                   <label className="block font-bold text-slate-700 uppercase mb-1">
-                    Customer Address
+                    Customer Address (Internal Ref — Not on PDF)
                   </label>
                   <input
                     type="text"
+                    placeholder="Optional internal address"
                     value={formData.customerAddress || ''}
                     onChange={(e) => {
                       setIsDirty(true);

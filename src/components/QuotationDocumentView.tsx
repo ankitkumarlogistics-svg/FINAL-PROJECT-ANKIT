@@ -15,11 +15,6 @@ export const QuotationDocumentView: React.FC<QuotationDocumentViewProps> = ({
   id = 'quotation-print-document',
 }) => {
   const rate = quotation.exchangeRate || 155;
-  const bookingNo = (quotation.bookingNo || '').trim();
-  const shipmentNo = (quotation.shipmentNo || '').trim();
-  const blNo = (quotation.blNo || '').trim();
-  const hasBookingOrShipment = Boolean(bookingNo || shipmentNo);
-  const hasAnyShipmentRef = Boolean(bookingNo || shipmentNo || blNo);
   const termsList = getQuotationTermsArray(quotation);
 
   return (
@@ -80,73 +75,24 @@ export const QuotationDocumentView: React.FC<QuotationDocumentViewProps> = ({
             </div>
           </div>
 
-          {/* Customer & Quotation Details Table */}
+          {/* Quotation & Shipment Details Table (No Customer TO / Address / Booking / B/L so quote can be shared across multiple customers) */}
           <div className="mt-3 border-t-2 border-slate-700">
             <table className="w-full text-[11.5px] border-collapse border border-slate-400">
               <tbody>
                 <tr className="border-b border-slate-300">
                   <td className="w-[18%] p-1.5 font-bold bg-slate-100 border-r border-slate-300 text-slate-800">
-                    TO
-                  </td>
-                  <td className="w-[32%] p-1.5 font-bold text-slate-900 border-r border-slate-300">
-                    {quotation.customerName}
-                  </td>
-                  <td className="w-[18%] p-1.5 font-bold bg-slate-100 border-r border-slate-300 text-slate-800">
                     QUOTATION NO.
                   </td>
-                  <td className="w-[32%] p-1.5 font-mono font-bold text-sky-900">
+                  <td className="w-[32%] p-1.5 font-mono font-bold text-sky-900 border-r border-slate-300">
                     {quotation.quotationNo}
                   </td>
-                </tr>
-
-                <tr className="border-b border-slate-300">
-                  <td className="p-1.5 font-bold bg-slate-100 border-r border-slate-300 text-slate-800">
-                    ADDRESS
-                  </td>
-                  <td className="p-1.5 text-slate-800 border-r border-slate-300">
-                    {quotation.customerAddress || '—'}
-                  </td>
-                  <td className="p-1.5 font-bold bg-slate-100 border-r border-slate-300 text-slate-800">
+                  <td className="w-[18%] p-1.5 font-bold bg-slate-100 border-r border-slate-300 text-slate-800">
                     DATE / VALIDITY
                   </td>
-                  <td className="p-1.5 font-mono font-semibold text-slate-900">
+                  <td className="w-[32%] p-1.5 font-mono font-semibold text-slate-900">
                     {quotation.date} (Valid to: {quotation.validUntil || '—'})
                   </td>
                 </tr>
-
-                {/* BOOKING / SHIPMENT / B/L NO. — Displayed ONLY if available */}
-                {hasAnyShipmentRef && (
-                  <tr className="border-b border-slate-300">
-                    {hasBookingOrShipment ? (
-                      <>
-                        <td className="p-1.5 font-bold bg-slate-100 border-r border-slate-300 text-slate-800">
-                          BOOKING / SHIPMENT NO.
-                        </td>
-                        <td
-                          colSpan={blNo ? 1 : 3}
-                          className={`p-1.5 font-mono font-semibold text-slate-900 ${
-                            blNo ? 'border-r border-slate-300' : ''
-                          }`}
-                        >
-                          {[bookingNo, shipmentNo].filter(Boolean).join(' / ')}
-                        </td>
-                      </>
-                    ) : null}
-                    {blNo ? (
-                      <>
-                        <td className="p-1.5 font-bold bg-slate-100 border-r border-slate-300 text-slate-800">
-                          B/L NO.
-                        </td>
-                        <td
-                          colSpan={hasBookingOrShipment ? 1 : 3}
-                          className="p-1.5 font-mono font-semibold text-slate-900"
-                        >
-                          {blNo}
-                        </td>
-                      </>
-                    ) : null}
-                  </tr>
-                )}
 
                 <tr className="border-b border-slate-300">
                   <td className="p-1.5 font-bold bg-slate-100 border-r border-slate-300 text-slate-800">
@@ -266,18 +212,21 @@ export const QuotationDocumentView: React.FC<QuotationDocumentViewProps> = ({
             </div>
           )}
 
-          {/* Terms & Conditions (Editable Numbered Clauses) */}
+          {/* Terms & Conditions (Explicitly Numbered Clauses) */}
           <div className="mt-3.5 border border-slate-300 rounded p-3 bg-slate-50/70">
             <div className="text-[11px] font-extrabold text-slate-900 uppercase tracking-wider mb-1.5 border-b border-slate-200 pb-1">
               Terms &amp; Conditions
             </div>
-            <ol className="list-decimal list-outside ml-4 space-y-1 text-[10.5px] leading-snug text-slate-700">
+            <div className="space-y-1 text-[10.5px] leading-snug text-slate-700">
               {termsList.map((term, idx) => (
-                <li key={idx} className="pl-0.5">
-                  {term}
-                </li>
+                <div key={idx} className="flex items-start gap-1.5">
+                  <span className="font-mono font-bold text-slate-800 shrink-0 min-w-[16px]">
+                    {idx + 1}.
+                  </span>
+                  <span>{term}</span>
+                </div>
               ))}
-            </ol>
+            </div>
           </div>
         </div>
 

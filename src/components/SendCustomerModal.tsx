@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { BookingConfirmation, FreightInvoice, Quotation, CompanyProfile } from '../types';
+import { formatTermsListToText, getQuotationTermsArray } from '../utils/interconnection';
 import { X, Mail, Download, Copy, Check } from 'lucide-react';
 
 interface SendCustomerModalProps {
@@ -91,18 +92,26 @@ ${company.ownerNameEn}
 ${company.companyNameEn} (${company.companyNameJp})
 ${company.addressEn}`;
   } else if (documentType === 'quotation' && quotation) {
-    body = `Dear ${quotation.customerName},
+    const recipientGreeting =
+      quotation.customerName && quotation.customerName !== 'General Customer'
+        ? quotation.customerName
+        : 'Valued Customer';
+    const termsBlock = formatTermsListToText(getQuotationTermsArray(quotation));
+    body = `Dear ${recipientGreeting},
 
 Greetings from ${company.companyNameEn}.
 
-Please find attached our Freight Quotation (${quotation.quotationNo}) valid until ${quotation.validUntil}.
+Please find attached our Freight Quotation (${quotation.quotationNo}) valid until ${quotation.validUntil || 'N/A'}.
 
 Quotation Summary:
 - Quotation No: ${quotation.quotationNo}
-${quotation.bookingNo ? `- Booking Ref: ${quotation.bookingNo}\n` : ''}${quotation.shipmentNo ? `- Shipment No: ${quotation.shipmentNo}\n` : ''}- Route: ${quotation.portFrom} to ${quotation.portTo}
-- Carrier: ${quotation.shippingCompany} (${quotation.vesselVoyage})
+- Route: ${quotation.portFrom} to ${quotation.portTo}
+- Carrier: ${quotation.shippingCompany}${quotation.vesselVoyage ? ` (${quotation.vesselVoyage})` : ''}
 - Containers: ${quotation.containerCount} x ${quotation.containerSize || "40' HC"}
-- Quoted Total: ¥${quotation.totalSellingJpy.toLocaleString()} JPY (Rate: ¥${quotation.exchangeRate}/USD)
+- Quoted Total: ¥${quotation.totalSellingJpy.toLocaleString()} JPY (Est. Rate: ¥${quotation.exchangeRate}/USD)
+
+Terms & Conditions:
+${termsBlock}
 
 Please confirm your acceptance so we may proceed with booking and invoicing.
 
