@@ -1,5 +1,11 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { BookingConfirmation, FreightInvoice, InvoiceStatus, Language } from '../types';
+import {
+  BookingConfirmation,
+  FreightInvoice,
+  InvoiceStatus,
+  Language,
+  ShippingLinePayment,
+} from '../types';
 import { translations } from '../utils/translations';
 import {
   Search,
@@ -16,16 +22,25 @@ import {
   Download,
   Mail,
   X,
+  TrendingUp,
+  TrendingDown,
+  Calculator,
+  Lock,
 } from 'lucide-react';
-import { computeCustomerInvoiceFinance } from '../utils/interconnection';
+import {
+  computeCustomerInvoiceFinance,
+  computeInvoiceProfitLoss,
+} from '../utils/interconnection';
 import { exportInvoicesToExcel } from '../utils/excelExport';
 
 interface InvoiceListProps {
   invoices: FreightInvoice[];
   bookings?: BookingConfirmation[];
+  shippingPayments?: ShippingLinePayment[];
   language?: Language;
   onView: (invoice: FreightInvoice) => void;
   onEdit: (invoice: FreightInvoice) => void;
+  onEditCosting: (invoice: FreightInvoice) => void;
   onDelete: (id: string) => void;
   onDuplicate: (invoice: FreightInvoice) => void;
   onToggleStatus: (id: string) => void;
@@ -37,9 +52,11 @@ interface InvoiceListProps {
 export const InvoiceList: React.FC<InvoiceListProps> = ({
   invoices,
   bookings = [],
+  shippingPayments = [],
   language = 'en',
   onView,
   onEdit,
+  onEditCosting,
   onDelete,
   onDuplicate,
   onToggleStatus,
@@ -50,10 +67,52 @@ export const InvoiceList: React.FC<InvoiceListProps> = ({
   const t = translations[language];
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
+  const [plFilter, setPlFilter] = useState<'ALL' | 'PROFIT' | 'LOSS' | 'COST_PENDING'>('ALL');
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [deletingInvoice, setDeletingInvoice] = useState<FreightInvoice | null>(null);
 
-  // Filtered and searched records by Invoice Number, Booking Number, or Customer Name
+  // Internal Overall Selling, Actual Cost & Profit/Loss KPIs across all invoices
+  const plTotals = useMemo(() => {
+    let totalSelling = 0;
+    let totalActualCost = 0;
+    let totalProfit = 0;
+    let totalLoss = 0;
+    let profitCount = 0;
+    let lossCount = 0;
+    let costedCount = 0;
+
+    invoices.forEach((inv) => {
+      const pl = computeInvoiceProfitLoss(inv, shippingPayments);
+      totalSelling += pl.sellingJpy;
+      totalActualCost += pl.actualCostJpy;
+      if (pl.hasCostEntered) costedCount += 1;
+      if (pl.netProfitLossJpy >= 0) {
+        totalProfit += pl.netProfitLossJpy;
+        profitCount += 1;
+      } else {
+        totalLoss += Math.abs(pl.netProfitLossJpy);
+        lossCount += 1;
+      }
+    });
+
+    const netProfitLoss = totalSelling - totalActualCost;
+    const marginPct =
+      totalSelling > 0 ? Math.round((netProfitLoss / totalSelling) * 1000) / 10 : 0;
+
+    return {
+      totalSelling,
+      totalActualCost,
+      totalProfit,
+      totalLoss,
+      netProfitLoss,
+      marginPct,
+      profitCount,
+      lossCount,
+      costedCount,
+    };
+  }, [invoices, shippingPayments]);
+
+  // Filtered and searched records by Invoice Number, Booking Number, Customer Name, Status & P/L filter
   const filteredInvoices = useMemo(() => {
     const term = searchTerm.trim().toLowerCase();
 
@@ -61,6 +120,14 @@ export const InvoiceList: React.FC<InvoiceListProps> = ({
       // 1. Status Filter
       if (statusFilter !== 'ALL' && inv.status !== statusFilter) {
         return false;
+      }
+
+      // 1B. Internal P&L Filter
+      if (plFilter !== 'ALL') {
+        const pl = computeInvoiceProfitLoss(inv, shippingPayments);
+        if (plFilter === 'LOSS' && !pl.isLoss) return false;
+        if (plFilter === 'PROFIT' && (!pl.hasCostEntered || pl.isLoss)) return false;
+        if (plFilter === 'COST_PENDING' && pl.hasCostEntered) return false;
       }
 
       if (!term) return true;
@@ -100,7 +167,7 @@ export const InvoiceList: React.FC<InvoiceListProps> = ({
 
       return false;
     });
-  }, [invoices, bookings, searchTerm, statusFilter]);
+  }, [invoices, bookings, shippingPayments, searchTerm, statusFilter, plFilter]);
 
   const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.checked) {
@@ -127,6 +194,7 @@ export const InvoiceList: React.FC<InvoiceListProps> = ({
   const handleResetFilters = () => {
     setSearchTerm('');
     setStatusFilter('ALL');
+    setPlFilter('ALL');
   };
 
   const statusStyles: Record<InvoiceStatus, { text: string; icon: any }> = {
@@ -137,53 +205,161 @@ export const InvoiceList: React.FC<InvoiceListProps> = ({
     OVERDUE: { text: 'text-rose-700 font-semibold', icon: AlertCircle },
   };
 
-  const isFilteringActive = searchTerm.trim().length > 0 || statusFilter !== 'ALL';
+  const isFilteringActive =
+    searchTerm.trim().length > 0 || statusFilter !== 'ALL' || plFilter !== 'ALL';
 
   return (
-    <div className="bg-white border border-slate-200 rounded-xl shadow-xs overflow-hidden">
-      {/* Top Filter & Action Bar */}
-      <div className="p-4 border-b border-slate-200 bg-slate-50/70 space-y-3">
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
-          {/* Search Bar - High Visibility Input */}
-          <div className="flex flex-1 items-center gap-2 max-w-2xl">
-            <div className="relative flex-1">
-              <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
-              <input
-                type="text"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                placeholder={t.searchInvoicesPlaceholder || 'Search by invoice #, booking #, or customer name...'}
-                className="w-full pl-10 pr-9 py-2 text-xs sm:text-sm bg-white border border-slate-300 rounded-lg shadow-2xs focus:outline-hidden focus:ring-2 focus:ring-sky-600 focus:border-sky-600 placeholder:text-slate-400 transition-all font-medium text-slate-900"
-              />
-              {searchTerm && (
-                <button
-                  type="button"
-                  onClick={() => setSearchTerm('')}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-full transition-colors"
-                  title={t.clearSearch || 'Clear search'}
-                >
-                  <X className="w-3.5 h-3.5" />
-                </button>
-              )}
-            </div>
+    <div className="space-y-4">
+      {/* INTERNAL PROFIT & LOSS SUMMARY DASHBOARD (Hidden from Customer PDF) */}
+      <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-xs space-y-3">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-slate-900 text-amber-300 text-[10px] font-bold uppercase tracking-wider">
+              <Lock className="w-3 h-3" /> Internal Accounting
+            </span>
+            <h3 className="text-xs sm:text-sm font-extrabold text-slate-900">
+              Selling Price, Actual Shipping Line Cost &amp; Net Profit/Loss Summary
+            </h3>
+          </div>
+          <span className="text-[11px] text-slate-500">
+            Single entry linked via Booking No · Excludes provisional quotations
+          </span>
+        </div>
 
-            {/* Status Dropdown */}
-            <div className="flex items-center gap-1.5 shrink-0">
-              <Filter className="w-3.5 h-3.5 text-slate-500 hidden sm:block" />
-              <select
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
-                className="text-xs bg-white border border-slate-300 rounded-lg px-2.5 py-2 text-slate-700 font-semibold focus:ring-2 focus:ring-sky-600 shadow-2xs"
-              >
-                <option value="ALL">{t.allStatuses}</option>
-                <option value="PENDING">PENDING</option>
-                <option value="UNPAID">UNPAID</option>
-                <option value="PAID">PAID</option>
-                <option value="PARTIAL">PARTIAL</option>
-                <option value="OVERDUE">OVERDUE</option>
-              </select>
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          <div className="bg-sky-50/60 border border-sky-200 rounded-xl p-3">
+            <div className="text-[10.5px] font-bold uppercase text-sky-800">
+              Total Selling Amount
+            </div>
+            <div className="mt-1 text-lg sm:text-xl font-mono font-extrabold text-slate-900 tabular-nums">
+              ¥{plTotals.totalSelling.toLocaleString()}
+            </div>
+            <div className="text-[10.5px] text-slate-500 mt-0.5">
+              Across {invoices.length} freight invoice(s)
             </div>
           </div>
+
+          <div className="bg-amber-50/70 border border-amber-200 rounded-xl p-3">
+            <div className="text-[10.5px] font-bold uppercase text-amber-900">
+              Actual Shipping Line Cost
+            </div>
+            <div className="mt-1 text-lg sm:text-xl font-mono font-extrabold text-amber-950 tabular-nums">
+              ¥{plTotals.totalActualCost.toLocaleString()}
+            </div>
+            <div className="text-[10.5px] text-slate-600 mt-0.5">
+              {plTotals.costedCount} of {invoices.length} shipments costed
+            </div>
+          </div>
+
+          <div className="bg-white border border-slate-200 rounded-xl p-3">
+            <div className="text-[10.5px] font-bold uppercase text-slate-600">
+              Total Profit / Total Loss
+            </div>
+            <div className="mt-1 text-sm font-mono font-extrabold text-emerald-700 tabular-nums">
+              +¥{plTotals.totalProfit.toLocaleString()}{' '}
+              <span className="text-[10px] font-sans font-semibold text-slate-500">
+                ({plTotals.profitCount})
+              </span>
+            </div>
+            <div className="text-sm font-mono font-extrabold text-rose-700 tabular-nums">
+              -¥{plTotals.totalLoss.toLocaleString()}{' '}
+              <span className="text-[10px] font-sans font-semibold text-slate-500">
+                ({plTotals.lossCount} loss)
+              </span>
+            </div>
+          </div>
+
+          <div
+            className={`border-2 rounded-xl p-3 ${
+              plTotals.netProfitLoss >= 0
+                ? 'bg-emerald-50/80 border-emerald-400'
+                : 'bg-rose-50 border-rose-400'
+            }`}
+          >
+            <div className="flex items-center justify-between">
+              <span
+                className={`text-[10.5px] font-extrabold uppercase ${
+                  plTotals.netProfitLoss >= 0 ? 'text-emerald-900' : 'text-rose-900'
+                }`}
+              >
+                Overall Net {plTotals.netProfitLoss >= 0 ? 'Profit' : 'Loss'}
+              </span>
+              {plTotals.netProfitLoss >= 0 ? (
+                <TrendingUp className="w-4 h-4 text-emerald-700" />
+              ) : (
+                <TrendingDown className="w-4 h-4 text-rose-700" />
+              )}
+            </div>
+            <div
+              className={`mt-1 text-lg sm:text-xl font-mono font-extrabold tabular-nums ${
+                plTotals.netProfitLoss >= 0 ? 'text-emerald-800' : 'text-rose-700'
+              }`}
+            >
+              {plTotals.netProfitLoss >= 0 ? '+' : '-'}¥{Math.abs(plTotals.netProfitLoss).toLocaleString()}
+            </div>
+            <div className="text-[10.5px] font-semibold text-slate-600 mt-0.5">
+              Net Margin: {plTotals.marginPct}%
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="bg-white border border-slate-200 rounded-xl shadow-xs overflow-hidden">
+        {/* Top Filter & Action Bar */}
+        <div className="p-4 border-b border-slate-200 bg-slate-50/70 space-y-3">
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+            {/* Search Bar - High Visibility Input */}
+            <div className="flex flex-1 flex-wrap items-center gap-2 max-w-3xl">
+              <div className="relative flex-1 min-w-[200px]">
+                <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  placeholder={t.searchInvoicesPlaceholder || 'Search by invoice #, booking #, or customer name...'}
+                  className="w-full pl-10 pr-9 py-2 text-xs sm:text-sm bg-white border border-slate-300 rounded-lg shadow-2xs focus:outline-hidden focus:ring-2 focus:ring-sky-600 focus:border-sky-600 placeholder:text-slate-400 transition-all font-medium text-slate-900"
+                />
+                {searchTerm && (
+                  <button
+                    type="button"
+                    onClick={() => setSearchTerm('')}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-full transition-colors"
+                    title={t.clearSearch || 'Clear search'}
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
+
+              {/* Status Dropdown */}
+              <div className="flex items-center gap-1.5 shrink-0">
+                <Filter className="w-3.5 h-3.5 text-slate-500 hidden sm:block" />
+                <select
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value)}
+                  className="text-xs bg-white border border-slate-300 rounded-lg px-2.5 py-2 text-slate-700 font-semibold focus:ring-2 focus:ring-sky-600 shadow-2xs"
+                >
+                  <option value="ALL">{t.allStatuses}</option>
+                  <option value="PENDING">PENDING</option>
+                  <option value="UNPAID">UNPAID</option>
+                  <option value="PAID">PAID</option>
+                  <option value="PARTIAL">PARTIAL</option>
+                  <option value="OVERDUE">OVERDUE</option>
+                </select>
+              </div>
+
+              {/* Internal P&L Filter */}
+              <select
+                value={plFilter}
+                onChange={(e) => setPlFilter(e.target.value as any)}
+                className="text-xs bg-white border border-amber-300 rounded-lg px-2.5 py-2 text-slate-800 font-semibold focus:ring-2 focus:ring-amber-500 shadow-2xs"
+              >
+                <option value="ALL">All Cost &amp; P/L</option>
+                <option value="PROFIT">Profitable Shipments</option>
+                <option value="LOSS">Loss Shipments</option>
+                <option value="COST_PENDING">Actual Cost Pending</option>
+              </select>
+            </div>
 
           {/* Right Action Buttons */}
           <div className="flex items-center gap-2 shrink-0 justify-between sm:justify-end">
@@ -279,6 +455,7 @@ export const InvoiceList: React.FC<InvoiceListProps> = ({
           <div className="block md:hidden divide-y divide-slate-200">
             {filteredInvoices.map((inv) => {
               const fin = computeCustomerInvoiceFinance(inv);
+              const pl = computeInvoiceProfitLoss(inv, shippingPayments);
               const StatusIcon = (statusStyles[inv.status] || statusStyles.PENDING).icon;
               return (
                 <div
@@ -370,6 +547,35 @@ export const InvoiceList: React.FC<InvoiceListProps> = ({
                     </div>
                   </div>
 
+                  {/* Internal Selling / Actual Cost / Profit & Loss Strip */}
+                  <div className="grid grid-cols-3 gap-1.5 bg-amber-50/60 border border-amber-200 rounded-lg p-2 text-[10.5px]">
+                    <div>
+                      <div className="text-slate-500 font-semibold">Selling</div>
+                      <div className="font-mono font-bold text-slate-900">
+                        ¥{pl.sellingJpy.toLocaleString()}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-amber-800 font-semibold">Actual SL Cost</div>
+                      <div className="font-mono font-bold text-amber-950">
+                        ¥{pl.actualCostJpy.toLocaleString()}
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-slate-500 font-semibold">
+                        {pl.hasCostEntered ? (pl.isProfit ? 'Profit' : 'Loss') : 'Cost Pending'}
+                      </div>
+                      <div
+                        className={`font-mono font-extrabold ${
+                          pl.isLoss ? 'text-rose-700' : 'text-emerald-700'
+                        }`}
+                      >
+                        {pl.netProfitLossJpy >= 0 ? '+' : '-'}¥
+                        {Math.abs(pl.netProfitLossJpy).toLocaleString()}
+                      </div>
+                    </div>
+                  </div>
+
                   {/* Mobile Action Bar */}
                   <div className="pt-1 flex items-center gap-1.5">
                     {/* Direct PDF Download */}
@@ -380,6 +586,17 @@ export const InvoiceList: React.FC<InvoiceListProps> = ({
                     >
                       <Download className="w-3.5 h-3.5" />
                       <span>Download PDF</span>
+                    </button>
+
+                    {/* Edit Cost & P&L */}
+                    <button
+                      type="button"
+                      onClick={() => onEditCosting(inv)}
+                      className="py-2 px-2.5 text-xs font-bold text-amber-950 bg-amber-100 hover:bg-amber-200 rounded-lg flex items-center gap-1"
+                      title="Manage Actual Shipping Cost & P/L"
+                    >
+                      <Calculator className="w-3.5 h-3.5" />
+                      <span>Cost</span>
                     </button>
 
                     {/* Send to Customer */}
@@ -459,7 +676,8 @@ export const InvoiceList: React.FC<InvoiceListProps> = ({
                   <th className="py-3 px-3 font-bold">{t.vesselVoyage}</th>
                   <th className="py-3 px-3 font-bold">B/L & Ref</th>
                   <th className="py-3 px-3 font-bold">Rate</th>
-                  <th className="py-3 px-3 font-bold text-right">{t.totalAmount}</th>
+                  <th className="py-3 px-3 font-bold text-right">Selling (Inv)</th>
+                  <th className="py-3 px-3 font-bold text-right bg-amber-50/70">Actual Cost &amp; P/L</th>
                   <th className="py-3 px-3 font-bold">{t.dueDate}</th>
                   <th className="py-3 px-3 font-bold">{t.paymentStatus}</th>
                   <th className="py-3 px-3 font-bold text-right">{t.actions}</th>
@@ -468,6 +686,7 @@ export const InvoiceList: React.FC<InvoiceListProps> = ({
               <tbody className="divide-y divide-slate-200">
                 {filteredInvoices.map((inv) => {
                   const fin = computeCustomerInvoiceFinance(inv);
+                  const pl = computeInvoiceProfitLoss(inv, shippingPayments);
                   const StatusIcon = (statusStyles[inv.status] || statusStyles.PENDING).icon;
                   return (
                     <tr
@@ -555,6 +774,54 @@ export const InvoiceList: React.FC<InvoiceListProps> = ({
                         <div className="text-[10px] text-slate-400">
                           {inv.items.length} line items
                         </div>
+                      </td>
+
+                      {/* Internal Actual Shipping Line Cost & Profit/Loss */}
+                      <td className="py-3 px-3 text-right bg-amber-50/30">
+                        {pl.hasCostEntered ? (
+                          <div className="space-y-0.5">
+                            <div className="text-[10.5px] font-mono text-amber-900 font-semibold">
+                              Cost: ¥{pl.actualCostJpy.toLocaleString()}
+                            </div>
+                            <div
+                              className={`font-mono font-extrabold text-xs tabular-nums ${
+                                pl.isLoss ? 'text-rose-700' : 'text-emerald-700'
+                              }`}
+                            >
+                              {pl.netProfitLossJpy >= 0 ? '+' : '-'}¥
+                              {Math.abs(pl.netProfitLossJpy).toLocaleString()}
+                            </div>
+                            <div className="flex items-center justify-end gap-1">
+                              <span
+                                className={`text-[9.5px] font-bold px-1.5 py-0.2 rounded ${
+                                  pl.isLoss
+                                    ? 'bg-rose-100 text-rose-800'
+                                    : 'bg-emerald-100 text-emerald-800'
+                                }`}
+                              >
+                                {pl.isLoss ? 'LOSS' : 'PROFIT'} {pl.marginPct}%
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => onEditCosting(inv)}
+                                className="text-[9.5px] font-bold text-amber-800 hover:underline"
+                                title="Edit Actual Shipping Line Cost"
+                              >
+                                Edit
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => onEditCosting(inv)}
+                            className="px-2 py-1 text-[10.5px] font-bold text-amber-900 bg-amber-100 hover:bg-amber-200 border border-amber-300 rounded inline-flex items-center gap-1"
+                            title="Enter Actual Shipping Line Cost for this Shipment"
+                          >
+                            <Calculator className="w-3 h-3" />
+                            + Actual Cost
+                          </button>
+                        )}
                       </td>
 
                       {/* Due Date with RED Deadline Alert */}
@@ -730,6 +997,7 @@ export const InvoiceList: React.FC<InvoiceListProps> = ({
           </div>
         </DeleteInvoiceModalBackdrop>
       )}
+      </div>
     </div>
   );
 };

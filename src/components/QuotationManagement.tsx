@@ -14,7 +14,6 @@ import {
   Eye,
   Edit3,
   Trash2,
-  Calculator,
   ArrowRight,
   History,
   X,
@@ -34,7 +33,6 @@ interface QuotationManagementProps {
   onViewQuotation: (quotation: Quotation) => void;
   onDownloadQuotationPdf: (quotation: Quotation) => void;
   onConvertQuotationToInvoice: (quotation: Quotation) => void;
-  onCreateCostingFromQuotation: (quotation: Quotation) => void;
   prefillBooking?: BookingConfirmation | null;
   isModalRequestedExternally?: boolean;
   externalEditingQuotation?: Quotation | null;
@@ -50,7 +48,6 @@ export const QuotationManagement: React.FC<QuotationManagementProps> = ({
   onViewQuotation,
   onDownloadQuotationPdf,
   onConvertQuotationToInvoice,
-  onCreateCostingFromQuotation,
   prefillBooking,
   isModalRequestedExternally,
   externalEditingQuotation,
@@ -96,8 +93,10 @@ export const QuotationManagement: React.FC<QuotationManagementProps> = ({
     const rejectedOrExpired = quotations.filter(
       (q) => q.status === 'REJECTED' || q.status === 'EXPIRED'
     ).length;
-    const costed = quotations.filter((q) => Boolean(q.linkedCostingId || q.linkedCostingNo)).length;
-    return { total, confirmed, referenceOnly, rejectedOrExpired, costed };
+    const converted = quotations.filter(
+      (q) => q.status === 'CONVERTED' || Boolean(q.linkedInvoiceId || q.linkedInvoiceNo)
+    ).length;
+    return { total, confirmed, referenceOnly, rejectedOrExpired, converted };
   }, [quotations]);
 
   const filteredQuotations = useMemo(() => {
@@ -158,7 +157,7 @@ export const QuotationManagement: React.FC<QuotationManagementProps> = ({
           id: `qh-${Date.now()}`,
           status: 'ACCEPTED',
           date: new Date().toISOString().slice(0, 10),
-          note: `Booking #${cleanBk} assigned — eligible for Shipment Costing`,
+          note: `Booking #${cleanBk} assigned — ready for Freight Invoice & P&L`,
         },
       ],
       updatedAt: new Date().toISOString(),
@@ -195,7 +194,7 @@ export const QuotationManagement: React.FC<QuotationManagementProps> = ({
             Freight Quotation Management
           </h2>
           <p className="text-xs text-slate-500 mt-0.5">
-            Method 1 sends reference quotes without Booking #. Method 2 assigns Booking # so confirmed quotes link into Costing &amp; P&amp;L.
+            Method 1 sends reference quotes without Booking #. Method 2 assigns Booking # so confirmed quotes convert into Freight Invoices.
           </p>
         </div>
         <div className="flex items-center gap-2 shrink-0">
@@ -257,12 +256,12 @@ export const QuotationManagement: React.FC<QuotationManagementProps> = ({
 
         <div className="bg-white border border-indigo-200 rounded-xl p-3.5 shadow-2xs">
           <div className="text-[11px] font-bold uppercase text-indigo-700">
-            Linked to Costing
+            Converted to Invoice
           </div>
           <div className="mt-1.5 text-2xl font-mono font-bold text-indigo-900 tabular-nums">
-            {stats.costed}
+            {stats.converted}
           </div>
-          <div className="text-[11px] text-slate-500 mt-0.5">Active in P&amp;L Module</div>
+          <div className="text-[11px] text-slate-500 mt-0.5">Billed in Freight Invoices</div>
         </div>
 
         <div className="col-span-2 lg:col-span-1 bg-white border border-rose-200 rounded-xl p-3.5 shadow-2xs">
@@ -398,10 +397,10 @@ export const QuotationManagement: React.FC<QuotationManagementProps> = ({
                       {confirmed && (
                         <button
                           type="button"
-                          onClick={() => onCreateCostingFromQuotation(q)}
-                          className="px-2.5 py-1.5 text-xs font-bold text-amber-900 bg-amber-100 rounded-lg flex items-center gap-1"
+                          onClick={() => onConvertQuotationToInvoice(q)}
+                          className="px-2.5 py-1.5 text-xs font-bold text-emerald-900 bg-emerald-100 rounded-lg flex items-center gap-1"
                         >
-                          <Calculator className="w-3.5 h-3.5" /> Costing
+                          <ArrowRight className="w-3.5 h-3.5" /> Invoice
                         </button>
                       )}
                       <button
@@ -464,11 +463,6 @@ export const QuotationManagement: React.FC<QuotationManagementProps> = ({
                             <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-bold bg-slate-100 text-slate-700 border border-slate-200 rounded">
                               Reference Quote
                             </span>
-                          )}
-                          {q.linkedCostingNo && (
-                            <div className="text-[10px] font-mono text-indigo-700 mt-1">
-                              Costing: {q.linkedCostingNo}
-                            </div>
                           )}
                         </td>
                         <td className="py-3 px-3">
@@ -558,26 +552,15 @@ export const QuotationManagement: React.FC<QuotationManagementProps> = ({
                               </button>
                             )}
                             {confirmed && (
-                              <>
-                                <button
-                                  type="button"
-                                  onClick={() => onCreateCostingFromQuotation(q)}
-                                  className="px-2 py-1 text-[11px] font-bold text-amber-900 bg-amber-100 hover:bg-amber-200 rounded flex items-center gap-1"
-                                  title="Open Costing Module for this Confirmed Quotation"
-                                >
-                                  <Calculator className="w-3 h-3" />
-                                  {q.linkedCostingId ? 'View Costing' : 'To Costing'}
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => onConvertQuotationToInvoice(q)}
-                                  className="px-2 py-1 text-[11px] font-bold text-emerald-900 bg-emerald-100 hover:bg-emerald-200 rounded flex items-center gap-1"
-                                  title="Generate Freight Invoice from Confirmed Quotation"
-                                >
-                                  <ArrowRight className="w-3 h-3" />
-                                  Invoice
-                                </button>
-                              </>
+                              <button
+                                type="button"
+                                onClick={() => onConvertQuotationToInvoice(q)}
+                                className="px-2 py-1 text-[11px] font-bold text-emerald-900 bg-emerald-100 hover:bg-emerald-200 rounded flex items-center gap-1"
+                                title="Generate Freight Invoice from Confirmed Quotation"
+                              >
+                                <ArrowRight className="w-3 h-3" />
+                                Invoice
+                              </button>
                             )}
                             <button
                               type="button"
@@ -719,7 +702,7 @@ export const QuotationManagement: React.FC<QuotationManagementProps> = ({
                   type="submit"
                   className="px-4 py-2 text-xs font-bold text-white bg-emerald-700 hover:bg-emerald-800 rounded-lg"
                 >
-                  Confirm &amp; Enable Costing
+                  Confirm Booking #
                 </button>
               </div>
             </form>

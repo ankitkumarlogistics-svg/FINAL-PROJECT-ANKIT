@@ -332,6 +332,13 @@ export interface FreightInvoice {
   linkedBookingId?: string;
   linkedQuotationId?: string;
   quotationNo?: string;
+  // Internal Accounting Only (never displayed on customer-facing invoice PDF)
+  actualCostItems?: QuotationCostItem[];
+  actualShippingCostJpy?: number;
+  netProfitLossJpy?: number;
+  profitMarginPct?: number;
+  linkedShippingPaymentId?: string;
+  actualCostUpdatedAt?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -512,7 +519,6 @@ export type ActiveTab =
   | 'dashboard'
   | 'bookings'
   | 'quotations'
-  | 'costing'
   | 'invoices'
   | 'customerPayments'
   | 'shippingPayments'

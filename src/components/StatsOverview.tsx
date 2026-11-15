@@ -3,7 +3,6 @@ import {
   BookingConfirmation,
   FreightInvoice,
   Quotation,
-  ShipmentCosting,
   ShippingLinePayment,
 } from '../types';
 import { computeOverallProfitLossSummary } from '../utils/interconnection';
@@ -22,11 +21,9 @@ interface StatsOverviewProps {
   bookings: BookingConfirmation[];
   invoices: FreightInvoice[];
   quotations?: Quotation[];
-  costings?: ShipmentCosting[];
   shippingPayments?: ShippingLinePayment[];
   onSelectBookingsTab: () => void;
   onSelectQuotationsTab?: () => void;
-  onSelectCostingTab?: () => void;
   onSelectInvoicesTab: () => void;
   onSelectCustomerPaymentsTab?: () => void;
   onSelectShippingPaymentsTab?: () => void;
@@ -36,30 +33,28 @@ export const StatsOverview: React.FC<StatsOverviewProps> = ({
   bookings,
   invoices,
   quotations = [],
-  costings = [],
   shippingPayments = [],
   onSelectBookingsTab,
   onSelectQuotationsTab,
-  onSelectCostingTab,
   onSelectInvoicesTab,
   onSelectCustomerPaymentsTab,
   onSelectShippingPaymentsTab,
 }) => {
-  const pl = computeOverallProfitLossSummary(quotations, costings, invoices, shippingPayments);
+  const pl = computeOverallProfitLossSummary(quotations, invoices, shippingPayments);
   const activeBookingsCount = bookings.filter((b) => b.status === 'CONFIRMED').length;
 
   return (
     <div className="space-y-3 sm:space-y-4 mb-4 sm:mb-6">
-      {/* Row 1: Financial Profitability Summary (Confirmed Revenue, Shipment Cost, Net Profit/Loss, Operations) */}
+      {/* Row 1: Financial Profitability Summary (Selling Amount, Actual Shipping Line Cost, Net Profit/Loss, Operations) */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4">
-        {/* Card 1: Total Revenue */}
+        {/* Card 1: Total Selling / Revenue */}
         <div
-          onClick={onSelectCostingTab || onSelectInvoicesTab}
+          onClick={onSelectInvoicesTab}
           className="cursor-pointer bg-white border border-slate-200 rounded-xl p-3 sm:p-4 hover:border-sky-300 transition-all shadow-xs"
         >
           <div className="flex items-center justify-between">
             <span className="text-[11px] sm:text-xs font-semibold text-slate-500 uppercase tracking-wider truncate">
-              Total Revenue
+              Total Selling (Invoices)
             </span>
             <div className="p-1.5 bg-sky-50 text-sky-700 rounded-lg shrink-0">
               <Receipt className="w-4 h-4" />
@@ -69,18 +64,18 @@ export const StatsOverview: React.FC<StatsOverviewProps> = ({
             ¥{pl.totalRevenueJpy.toLocaleString()}
           </div>
           <div className="mt-1 text-[10.5px] text-slate-500 flex items-center justify-between">
-            <span>{pl.confirmedShipmentsCount} confirmed · {pl.referenceQuotesCount} quotes excl.</span>
+            <span>{pl.confirmedShipmentsCount} invoices · {pl.referenceQuotesCount} quotes excl.</span>
           </div>
         </div>
 
-        {/* Card 2: Total Shipment Cost */}
+        {/* Card 2: Total Actual Shipping Line Cost */}
         <div
-          onClick={onSelectCostingTab || onSelectShippingPaymentsTab}
+          onClick={onSelectInvoicesTab}
           className="cursor-pointer bg-white border border-slate-200 rounded-xl p-3 sm:p-4 hover:border-amber-300 transition-all shadow-xs"
         >
           <div className="flex items-center justify-between">
             <span className="text-[11px] sm:text-xs font-semibold text-slate-500 uppercase tracking-wider truncate">
-              Total Shipment Cost
+              Actual Shipping Cost
             </span>
             <div className="p-1.5 bg-amber-50 text-amber-700 rounded-lg shrink-0">
               <Calculator className="w-4 h-4" />
@@ -90,13 +85,13 @@ export const StatsOverview: React.FC<StatsOverviewProps> = ({
             ¥{pl.totalCostJpy.toLocaleString()}
           </div>
           <div className="mt-1 text-[10.5px] text-slate-500 flex items-center justify-between">
-            <span>SL Paid: ¥{pl.paidShippingLineJpy.toLocaleString()}</span>
+            <span>{pl.costEnteredCount} costed · SL Paid: ¥{pl.paidShippingLineJpy.toLocaleString()}</span>
           </div>
         </div>
 
         {/* Card 3: Overall Net Profit / Loss */}
         <div
-          onClick={onSelectCostingTab || onSelectQuotationsTab}
+          onClick={onSelectInvoicesTab}
           className={`cursor-pointer border rounded-xl p-3 sm:p-4 transition-all shadow-xs ${
             pl.netProfitLossJpy >= 0
               ? 'bg-emerald-50/50 border-emerald-200 hover:border-emerald-300'

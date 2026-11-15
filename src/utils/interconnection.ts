@@ -3,7 +3,6 @@ import {
   FreightInvoice,
   InvoiceStatus,
   Quotation,
-  ShipmentCosting,
   ShippingLinePayment,
   ShippingLinePaymentStatus,
 } from '../types';
@@ -222,6 +221,78 @@ export function computeShippingPaymentFinance(p: ShippingLinePayment): ShippingP
   };
 }
 
+export interface InvoiceProfitLoss {
+  sellingJpy: number;
+  actualCostJpy: number;
+  netProfitLossJpy: number;
+  marginPct: number;
+  isProfit: boolean;
+  isLoss: boolean;
+  hasCostEntered: boolean;
+  costSource: 'INVOICE_COST' | 'SHIPPING_PAYMENT_LINKED' | 'NONE';
+  linkedShippingPayments: ShippingLinePayment[];
+  linkedShippingPayableTotalJpy: number;
+}
+
+/**
+ * Calculates Selling Price, Actual Shipping Line Cost, and Profit/Loss for a Freight Invoice.
+ * - Selling Price = invoice.grandTotalJpy
+ * - Actual Shipping Line Cost = invoice.actualShippingCostJpy (if explicitly entered on invoice),
+ *   otherwise summed from confirmed ShippingLinePayment records linked via Booking Number or ID.
+ * - Provisional or unconfirmed customer quotations are NEVER treated as actual costs.
+ */
+export function computeInvoiceProfitLoss(
+  inv: FreightInvoice,
+  shippingPayments: ShippingLinePayment[] = []
+): InvoiceProfitLoss {
+  const sellingJpy = Math.max(0, Math.round(inv.grandTotalJpy || 0));
+  const invBk = (inv.bookingNo || '').trim().toUpperCase();
+
+  const linkedShippingPayments = shippingPayments.filter((s) => {
+    if (inv.linkedShippingPaymentId && s.id === inv.linkedShippingPaymentId) return true;
+    if (invBk && (s.bookingNo || '').trim().toUpperCase() === invBk) return true;
+    return false;
+  });
+
+  const linkedShippingPayableTotalJpy = linkedShippingPayments.reduce(
+    (sum, s) => sum + Math.max(0, Math.round(s.payableAmountJpy || 0)),
+    0
+  );
+
+  const hasExplicitInvoiceCost =
+    Boolean(inv.actualCostUpdatedAt) ||
+    (Array.isArray(inv.actualCostItems) && inv.actualCostItems.length > 0) ||
+    (typeof inv.actualShippingCostJpy === 'number' && inv.actualShippingCostJpy > 0);
+
+  let actualCostJpy = 0;
+  let costSource: InvoiceProfitLoss['costSource'] = 'NONE';
+
+  if (hasExplicitInvoiceCost) {
+    actualCostJpy = Math.max(0, Math.round(inv.actualShippingCostJpy || 0));
+    costSource = 'INVOICE_COST';
+  } else if (linkedShippingPayableTotalJpy > 0) {
+    actualCostJpy = linkedShippingPayableTotalJpy;
+    costSource = 'SHIPPING_PAYMENT_LINKED';
+  }
+
+  const netProfitLossJpy = sellingJpy - actualCostJpy;
+  const marginPct =
+    sellingJpy > 0 ? Math.round((netProfitLossJpy / sellingJpy) * 1000) / 10 : 0;
+
+  return {
+    sellingJpy,
+    actualCostJpy,
+    netProfitLossJpy,
+    marginPct,
+    isProfit: netProfitLossJpy >= 0,
+    isLoss: netProfitLossJpy < 0,
+    hasCostEntered: hasExplicitInvoiceCost || linkedShippingPayableTotalJpy > 0,
+    costSource,
+    linkedShippingPayments,
+    linkedShippingPayableTotalJpy,
+  };
+}
+
 export interface OverallProfitLossSummary {
   totalRevenueJpy: number;
   totalCostJpy: number;
@@ -230,6 +301,7 @@ export interface OverallProfitLossSummary {
   netProfitLossJpy: number;
   overallMarginPct: number;
   confirmedShipmentsCount: number;
+  costEnteredCount: number;
   referenceQuotesCount: number;
   pendingCustomerJpy: number;
   collectedCustomerJpy: number;
@@ -240,14 +312,12 @@ export interface OverallProfitLossSummary {
 }
 
 /**
- * Calculates company-wide Revenue, Shipment Cost, and Profit/Loss STRICTLY from confirmed business:
- * 1) Confirmed ShipmentCosting entries (which require an assigned Booking Number).
- * 2) Actual Invoices for confirmed bookings that do not already have a ShipmentCosting entry.
- * Unconfirmed, Reference-only (no Booking Number), Rejected, or Expired quotations NEVER count toward revenue or P&L.
+ * Calculates company-wide Selling Amount, Actual Shipping Line Cost, and Profit/Loss
+ * directly from Freight Invoices + Actual Shipping Line Costs (linked via Booking Number).
+ * Unconfirmed or provisional quotations NEVER count toward revenue, cost, or P&L.
  */
 export function computeOverallProfitLossSummary(
   quotations: Quotation[],
-  costings: ShipmentCosting[],
   invoices: FreightInvoice[],
   shippingPayments: ShippingLinePayment[]
 ): OverallProfitLossSummary {
@@ -255,61 +325,25 @@ export function computeOverallProfitLossSummary(
   let totalCostJpy = 0;
   let totalProfitJpy = 0;
   let totalLossJpy = 0;
-
-  const confirmedCostings = costings.filter((c) => Boolean((c.bookingNo || '').trim()));
-  const costedBookingSet = new Set(
-    confirmedCostings.map((c) => (c.bookingNo || '').trim().toUpperCase()).filter(Boolean)
-  );
-  const costedInvoiceIdSet = new Set(
-    confirmedCostings.map((c) => c.linkedInvoiceId).filter(Boolean) as string[]
-  );
-
-  confirmedCostings.forEach((c) => {
-    const rev = Math.round(c.totalSellingJpy || 0);
-    const cost = Math.round(c.totalCostJpy || 0);
-    const net = rev - cost;
-    totalRevenueJpy += rev;
-    totalCostJpy += cost;
-    if (net >= 0) {
-      totalProfitJpy += net;
-    } else {
-      totalLossJpy += Math.abs(net);
-    }
-  });
-
-  // Include confirmed invoices not yet entered in Costing so invoiced shipments still reflect accurately
-  let extraConfirmedCount = 0;
-  invoices.forEach((inv) => {
-    const invBk = (inv.bookingNo || '').trim().toUpperCase();
-    const isCovered = costedInvoiceIdSet.has(inv.id) || (invBk && costedBookingSet.has(invBk));
-    if (!isCovered) {
-      extraConfirmedCount += 1;
-      const rev = Math.round(inv.grandTotalJpy || 0);
-      const slCost = invBk
-        ? shippingPayments
-            .filter((s) => (s.bookingNo || '').trim().toUpperCase() === invBk)
-            .reduce((sum, s) => sum + Math.round(s.payableAmountJpy || 0), 0)
-        : 0;
-      const net = rev - slCost;
-      totalRevenueJpy += rev;
-      totalCostJpy += slCost;
-      if (net >= 0) {
-        totalProfitJpy += net;
-      } else {
-        totalLossJpy += Math.abs(net);
-      }
-    }
-  });
-
-  const referenceQuotesCount = quotations.filter((q) => !isQuotationConfirmedForBusiness(q)).length;
-  const netProfitLossJpy = totalRevenueJpy - totalCostJpy;
-  const overallMarginPct =
-    totalRevenueJpy > 0 ? Math.round((netProfitLossJpy / totalRevenueJpy) * 1000) / 10 : 0;
+  let costEnteredCount = 0;
 
   let pendingCustomerJpy = 0;
   let collectedCustomerJpy = 0;
   let urgentCustomerCount = 0;
+
   invoices.forEach((inv) => {
+    const pl = computeInvoiceProfitLoss(inv, shippingPayments);
+    totalRevenueJpy += pl.sellingJpy;
+    totalCostJpy += pl.actualCostJpy;
+    if (pl.hasCostEntered) {
+      costEnteredCount += 1;
+    }
+    if (pl.netProfitLossJpy >= 0) {
+      totalProfitJpy += pl.netProfitLossJpy;
+    } else {
+      totalLossJpy += Math.abs(pl.netProfitLossJpy);
+    }
+
     const fin = computeCustomerInvoiceFinance(inv);
     pendingCustomerJpy += fin.outstandingJpy;
     collectedCustomerJpy += fin.receivedJpy;
@@ -317,6 +351,11 @@ export function computeOverallProfitLossSummary(
       urgentCustomerCount += 1;
     }
   });
+
+  const referenceQuotesCount = quotations.filter((q) => !isQuotationConfirmedForBusiness(q)).length;
+  const netProfitLossJpy = totalRevenueJpy - totalCostJpy;
+  const overallMarginPct =
+    totalRevenueJpy > 0 ? Math.round((netProfitLossJpy / totalRevenueJpy) * 1000) / 10 : 0;
 
   let pendingShippingLineJpy = 0;
   let paidShippingLineJpy = 0;
@@ -337,7 +376,8 @@ export function computeOverallProfitLossSummary(
     totalLossJpy,
     netProfitLossJpy,
     overallMarginPct,
-    confirmedShipmentsCount: confirmedCostings.length + extraConfirmedCount,
+    confirmedShipmentsCount: invoices.length,
+    costEnteredCount,
     referenceQuotesCount,
     pendingCustomerJpy,
     collectedCustomerJpy,

@@ -17,7 +17,6 @@ import {
   Receipt,
   FileCheck2,
   FileText,
-  Calculator,
   Wallet,
   Anchor,
   Building2,
@@ -81,11 +80,6 @@ export const Header: React.FC<HeaderProps> = ({
       id: 'quotations',
       label: 'Quotations',
       icon: <FileText className="w-4 h-4 shrink-0" />,
-    },
-    {
-      id: 'costing',
-      label: 'Costing & P&L',
-      icon: <Calculator className="w-4 h-4 shrink-0" />,
     },
     {
       id: 'invoices',

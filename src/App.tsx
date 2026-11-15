@@ -19,7 +19,6 @@ import {
   MasterData,
   KycRecord,
   Quotation,
-  ShipmentCosting,
   ShippingLinePayment,
 } from './types';
 import {
@@ -31,8 +30,6 @@ import {
   saveInvoices,
   getQuotations,
   saveQuotations,
-  getCostings,
-  saveCostings,
   getShippingLinePayments,
   saveShippingLinePayments,
   getUsers,
@@ -71,9 +68,6 @@ import {
   subscribeToCloudQuotations,
   saveQuotationToCloud,
   deleteQuotationFromCloud,
-  subscribeToCloudCostings,
-  saveCostingToCloud,
-  deleteCostingFromCloud,
   subscribeToCloudShippingLinePayments,
   saveShippingLinePaymentToCloud,
   deleteShippingLinePaymentFromCloud,
@@ -113,8 +107,6 @@ import {
   CloudSyncStatus,
 } from './services/firebase';
 import {
-  DEFAULT_QUOTATION_TERMS,
-  formatTermsListToText,
   computeOverallProfitLossSummary,
   computeCustomerInvoiceFinance,
   computeShippingPaymentFinance,
@@ -139,7 +131,6 @@ import { BookingDocumentView } from './components/BookingDocumentView';
 import { InvoiceDocumentView } from './components/InvoiceDocumentView';
 import { QuotationDocumentView } from './components/QuotationDocumentView';
 import { QuotationManagement } from './components/QuotationManagement';
-import { CostingManagement } from './components/CostingManagement';
 import { CustomerPaymentManagement } from './components/CustomerPaymentManagement';
 import { ShippingLinePaymentManagement } from './components/ShippingLinePaymentManagement';
 import { CustomerManagement } from './components/CustomerManagement';
@@ -159,7 +150,6 @@ import {
   Users,
   FileCheck2,
   Cloud,
-  Calculator,
   Wallet,
   Anchor,
   AlertTriangle,
@@ -170,7 +160,6 @@ export default function App() {
   const [bookings, setBookings] = useState<BookingConfirmation[]>(getBookings);
   const [invoices, setInvoices] = useState<FreightInvoice[]>(getInvoices);
   const [quotations, setQuotations] = useState<Quotation[]>(getQuotations);
-  const [costings, setCostings] = useState<ShipmentCosting[]>(getCostings);
   const [shippingLinePayments, setShippingLinePayments] = useState<ShippingLinePayment[]>(
     getShippingLinePayments
   );
@@ -203,19 +192,19 @@ export default function App() {
 
   const [isInvoiceModalOpen, setIsInvoiceModalOpen] = useState(false);
   const [editingInvoice, setEditingInvoice] = useState<FreightInvoice | null>(null);
+  const [invoiceModalFocusSection, setInvoiceModalFocusSection] = useState<'billing' | 'costing'>(
+    'billing'
+  );
   const [prefillBookingForInvoice, setPrefillBookingForInvoice] =
     useState<BookingConfirmation | null>(null);
   const [prefillQuotationForInvoice, setPrefillQuotationForInvoice] =
     useState<Quotation | null>(null);
 
-  // Cross-module quick-creation & editing states for Quotation, Costing & Shipping Line Payment
+  // Cross-module quick-creation & editing states for Quotation & Shipping Line Payment
   const [prefillBookingForQuote, setPrefillBookingForQuote] =
     useState<BookingConfirmation | null>(null);
   const [isQuoteExternalOpen, setIsQuoteExternalOpen] = useState(false);
   const [editingQuotationForTab, setEditingQuotationForTab] = useState<Quotation | null>(null);
-
-  const [costingPrefillQuotation, setCostingPrefillQuotation] = useState<Quotation | null>(null);
-  const [isCostingExternalOpen, setIsCostingExternalOpen] = useState(false);
 
   const [prefillBookingForSlPay, setPrefillBookingForSlPay] =
     useState<BookingConfirmation | null>(null);
@@ -265,7 +254,6 @@ export default function App() {
     const unsubBookings = subscribeToCloudBookings(setBookings);
     const unsubInvoices = subscribeToCloudInvoices(setInvoices);
     const unsubQuotations = subscribeToCloudQuotations(setQuotations);
-    const unsubCostings = subscribeToCloudCostings(setCostings);
     const unsubSlPayments = subscribeToCloudShippingLinePayments(setShippingLinePayments);
     const unsubCompany = subscribeToCloudCompanyProfile(setCompany);
     const unsubUsers = subscribeToCloudUsers(setUsers);
@@ -284,7 +272,6 @@ export default function App() {
       unsubBookings();
       unsubInvoices();
       unsubQuotations();
-      unsubCostings();
       unsubSlPayments();
       unsubCompany();
       unsubUsers();
@@ -644,50 +631,6 @@ export default function App() {
 
     const now = new Date().toISOString();
 
-    // If a ShipmentCosting already exists linked to this quotation, sync selling price & shipment refs without auto-creating new costing records
-    let costChanged = false;
-    const syncedCostings = costings.map((c) => {
-      if (c.linkedQuotationId === quotation.id || c.id === quotation.linkedCostingId) {
-        costChanged = true;
-        const net = Math.round((quotation.totalSellingJpy || 0) - (c.totalCostJpy || 0));
-        const margin =
-          quotation.totalSellingJpy > 0
-            ? Math.round((net / quotation.totalSellingJpy) * 1000) / 10
-            : 0;
-        const patched: ShipmentCosting = {
-          ...c,
-          quotationNo: quotation.quotationNo,
-          bookingNo: quotation.bookingNo || c.bookingNo,
-          shipmentNo: quotation.shipmentNo || c.shipmentNo,
-          blNo: quotation.blNo || c.blNo,
-          linkedBookingId: quotation.linkedBookingId || c.linkedBookingId,
-          customerName: quotation.customerName || c.customerName,
-          shippingCompany: quotation.shippingCompany || c.shippingCompany,
-          vesselVoyage: quotation.vesselVoyage || c.vesselVoyage,
-          portFrom: quotation.portFrom || c.portFrom,
-          portTo: quotation.portTo || c.portTo,
-          etd: quotation.etd || c.etd,
-          eta: quotation.eta || c.eta,
-          exchangeRate: quotation.exchangeRate || c.exchangeRate,
-          containerCount: quotation.containerCount || c.containerCount,
-          containerSize: quotation.containerSize || c.containerSize,
-          containerNumbers: quotation.containerNumbers || c.containerNumbers,
-          sellingItems: quotation.sellingItems,
-          totalSellingJpy: quotation.totalSellingJpy,
-          netProfitLossJpy: net,
-          profitMarginPct: margin,
-          updatedAt: now,
-        };
-        saveCostingToCloud(patched).catch(console.error);
-        return patched;
-      }
-      return c;
-    });
-    if (costChanged) {
-      setCostings(syncedCostings);
-      saveCostings(syncedCostings);
-    }
-
     // Propagate updated shipmentNo / blNo to linked booking & SL payments if changed
     const qKeys = {
       bookingId: quotation.linkedBookingId,
@@ -779,170 +722,9 @@ export default function App() {
     setActiveTab('quotations');
   };
 
-  const handleCreateCostingFromQuotation = (quotation: Quotation) => {
-    setCostingPrefillQuotation(quotation);
-    setIsCostingExternalOpen(true);
-    setActiveTab('costing');
-  };
-
-  // --- Shipment Costing CRUD & Link Sync ---
-  const handleSaveCosting = (costing: ShipmentCosting) => {
-    const exists = costings.some((c) => c.id === costing.id);
-    const updated = exists
-      ? costings.map((c) => (c.id === costing.id ? costing : c))
-      : [costing, ...costings];
-    setCostings(updated);
-    saveCostings(updated);
-    saveCostingToCloud(costing).catch(console.error);
-
-    // Sync link metadata & P&L metrics back to linked Quotation
-    const now = new Date().toISOString();
-    let qChanged = false;
-    const syncedQuotes = quotations.map((q) => {
-      if (q.id === costing.linkedQuotationId || q.quotationNo === costing.quotationNo) {
-        qChanged = true;
-        const patched: Quotation = {
-          ...q,
-          quotationMethod: 'CONFIRMED_BOOKING',
-          bookingNo: costing.bookingNo || q.bookingNo,
-          shipmentNo: costing.shipmentNo || q.shipmentNo,
-          blNo: costing.blNo || q.blNo,
-          linkedBookingId: costing.linkedBookingId || q.linkedBookingId,
-          linkedCostingId: costing.id,
-          linkedCostingNo: costing.costingNo,
-          totalSellingJpy: costing.totalSellingJpy,
-          totalCostJpy: costing.totalCostJpy,
-          netProfitLossJpy: costing.netProfitLossJpy,
-          profitMarginPct: costing.profitMarginPct,
-          updatedAt: now,
-        };
-        saveQuotationToCloud(patched).catch(console.error);
-        return patched;
-      }
-      return q;
-    });
-    if (qChanged) {
-      setQuotations(syncedQuotes);
-      saveQuotations(syncedQuotes);
-    }
-  };
-
-  const handleDeleteCosting = (id: string) => {
-    const updated = costings.filter((c) => c.id !== id);
-    setCostings(updated);
-    saveCostings(updated);
-    deleteCostingFromCloud(id).catch(console.error);
-
-    const now = new Date().toISOString();
-    let qChanged = false;
-    const clearedQuotes = quotations.map((q) => {
-      if (q.linkedCostingId === id) {
-        qChanged = true;
-        const patched: Quotation = {
-          ...q,
-          linkedCostingId: undefined,
-          linkedCostingNo: undefined,
-          totalCostJpy: 0,
-          netProfitLossJpy: 0,
-          profitMarginPct: 0,
-          updatedAt: now,
-        };
-        saveQuotationToCloud(patched).catch(console.error);
-        return patched;
-      }
-      return q;
-    });
-    if (qChanged) {
-      setQuotations(clearedQuotes);
-      saveQuotations(clearedQuotes);
-    }
-  };
-
-  const buildQuotationPayloadFromCosting = (costing: ShipmentCosting): Quotation => {
-    const existingQuote =
-      quotations.find(
-        (q) => q.id === costing.linkedQuotationId || q.quotationNo === costing.quotationNo
-      ) || null;
-    if (existingQuote) {
-      return {
-        ...existingQuote,
-        bookingNo: costing.bookingNo || existingQuote.bookingNo,
-        shipmentNo: costing.shipmentNo || existingQuote.shipmentNo,
-        blNo: costing.blNo || existingQuote.blNo,
-        sellingItems: costing.sellingItems?.length ? costing.sellingItems : existingQuote.sellingItems,
-        totalSellingJpy: costing.totalSellingJpy || existingQuote.totalSellingJpy,
-      };
-    }
-    return {
-      id: costing.linkedQuotationId || costing.id,
-      quotationNo: costing.quotationNo,
-      quotationMethod: 'CONFIRMED_BOOKING',
-      date: costing.date,
-      validUntil: costing.date,
-      status: 'ACCEPTED',
-      customerName: costing.customerName,
-      customerAddress: '',
-      bookingNo: costing.bookingNo,
-      shipmentNo: costing.shipmentNo,
-      blNo: costing.blNo,
-      linkedBookingId: costing.linkedBookingId,
-      shippingCompany: costing.shippingCompany,
-      vesselVoyage: costing.vesselVoyage,
-      portFrom: costing.portFrom,
-      portTo: costing.portTo,
-      etd: costing.etd,
-      eta: costing.eta,
-      shipmentMode: costing.shipmentMode,
-      containerCount: costing.containerCount,
-      containerSize: costing.containerSize,
-      containerNumbers: costing.containerNumbers,
-      exchangeRate: costing.exchangeRate,
-      freightTerm: 'PREPAID',
-      sellingItems: costing.sellingItems || [],
-      costItems: costing.costItems || [],
-      totalSellingJpy: costing.totalSellingJpy,
-      totalCostJpy: costing.totalCostJpy,
-      netProfitLossJpy: costing.netProfitLossJpy,
-      profitMarginPct: costing.profitMarginPct,
-      remarks: costing.remarks || '',
-      termsList: [...DEFAULT_QUOTATION_TERMS],
-      termsAndConditions: formatTermsListToText(DEFAULT_QUOTATION_TERMS),
-      linkedCostingId: costing.id,
-      linkedCostingNo: costing.costingNo,
-      createdAt: costing.createdAt,
-      updatedAt: costing.updatedAt,
-    };
-  };
-
-  const handleConvertCostingToInvoice = (costing: ShipmentCosting) => {
-    const prefillQuote = buildQuotationPayloadFromCosting(costing);
-    setEditingInvoice(null);
-    setPrefillBookingForInvoice(null);
-    setPrefillQuotationForInvoice(prefillQuote);
-    setIsInvoiceModalOpen(true);
-  };
-
-  const handleCreateShippingPaymentFromCosting = (costing: ShipmentCosting) => {
-    const linkedBooking =
-      bookings.find(
-        (b) =>
-          b.id === costing.linkedBookingId ||
-          (costing.bookingNo &&
-            b.bookingNumber.trim().toUpperCase() === costing.bookingNo.trim().toUpperCase())
-      ) || null;
-    if (linkedBooking) {
-      setPrefillBookingForSlPay(linkedBooking);
-      setPrefillQuotationForSlPay(null);
-    } else {
-      setPrefillQuotationForSlPay(buildQuotationPayloadFromCosting(costing));
-      setPrefillBookingForSlPay(null);
-    }
-    setIsSlPayExternalOpen(true);
-    setActiveTab('shippingPayments');
-  };
-
   const handleConvertQuotationToInvoice = (quotation: Quotation) => {
     setEditingInvoice(null);
+    setInvoiceModalFocusSection('billing');
     setPrefillBookingForInvoice(null);
     setPrefillQuotationForInvoice(quotation);
     setIsInvoiceModalOpen(true);
@@ -1003,6 +785,46 @@ export default function App() {
       if (bkChanged) {
         setBookings(syncedBk);
         saveBookings(syncedBk);
+      }
+    }
+
+    // Keep FreightInvoice P&L synced via Booking Number when linked SL payment changes (single entry)
+    const pBk = (normalized.bookingNo || '').trim().toUpperCase();
+    if (pBk) {
+      let invPlChanged = false;
+      const now = new Date().toISOString();
+      const syncedInvoices = invoices.map((inv) => {
+        const iBk = (inv.bookingNo || '').trim().toUpperCase();
+        const matchesBk = iBk === pBk || inv.linkedShippingPaymentId === normalized.id;
+        const onlyAutoSlImported =
+          !inv.actualCostItems ||
+          inv.actualCostItems.length === 0 ||
+          inv.actualCostItems.every((ci) => ci.id.startsWith('aci-sl-'));
+        if (matchesBk && (!inv.actualCostUpdatedAt || (inv.linkedShippingPaymentId === normalized.id && onlyAutoSlImported))) {
+          invPlChanged = true;
+          const totalSlForBk = updated
+            .filter((s) => (s.bookingNo || '').trim().toUpperCase() === pBk)
+            .reduce((sum, s) => sum + Math.max(0, Math.round(s.payableAmountJpy || 0)), 0);
+          const net = Math.round(inv.grandTotalJpy || 0) - totalSlForBk;
+          const margin =
+            inv.grandTotalJpy > 0 ? Math.round((net / inv.grandTotalJpy) * 1000) / 10 : 0;
+          const patched: FreightInvoice = {
+            ...inv,
+            linkedShippingPaymentId: normalized.id,
+            actualShippingCostJpy: totalSlForBk,
+            netProfitLossJpy: net,
+            profitMarginPct: margin,
+            actualCostUpdatedAt: now,
+            updatedAt: now,
+          };
+          saveInvoiceToCloud(patched).catch(console.error);
+          return patched;
+        }
+        return inv;
+      });
+      if (invPlChanged) {
+        setInvoices(syncedInvoices);
+        saveInvoices(syncedInvoices);
       }
     }
   };
@@ -1125,39 +947,6 @@ export default function App() {
         saveBookings(syncedBk);
       }
     }
-
-    let costChanged = false;
-    const syncedCostings = costings.map((c) => {
-      const isMatch =
-        c.linkedQuotationId === normalized.linkedQuotationId ||
-        matchByShipmentKeys(
-          {
-            bookingId: c.linkedBookingId,
-            bookingNo: c.bookingNo,
-            shipmentNo: c.shipmentNo,
-            blNo: c.blNo,
-          },
-          invKeys
-        );
-      if (isMatch) {
-        costChanged = true;
-        const patched: ShipmentCosting = {
-          ...c,
-          linkedInvoiceId: normalized.id,
-          linkedInvoiceNo: normalized.invoiceNo,
-          blNo: normalized.blNo || c.blNo,
-          shipmentNo: normalized.shipmentNo || c.shipmentNo,
-          updatedAt: now,
-        };
-        saveCostingToCloud(patched).catch(console.error);
-        return patched;
-      }
-      return c;
-    });
-    if (costChanged) {
-      setCostings(syncedCostings);
-      saveCostings(syncedCostings);
-    }
   };
 
   const handleDeleteInvoice = (id: string) => {
@@ -1224,6 +1013,15 @@ export default function App() {
 
   const handleEditInvoice = (invoice: FreightInvoice) => {
     setEditingInvoice(invoice);
+    setInvoiceModalFocusSection('billing');
+    setPrefillBookingForInvoice(null);
+    setPrefillQuotationForInvoice(null);
+    setIsInvoiceModalOpen(true);
+  };
+
+  const handleEditInvoiceCosting = (invoice: FreightInvoice) => {
+    setEditingInvoice(invoice);
+    setInvoiceModalFocusSection('costing');
     setPrefillBookingForInvoice(null);
     setPrefillQuotationForInvoice(null);
     setIsInvoiceModalOpen(true);
@@ -1231,6 +1029,7 @@ export default function App() {
 
   const handleConvertToInvoice = (booking: BookingConfirmation) => {
     setEditingInvoice(null);
+    setInvoiceModalFocusSection('billing');
     setPrefillQuotationForInvoice(null);
     setPrefillBookingForInvoice(booking);
     setIsInvoiceModalOpen(true);
@@ -1346,7 +1145,6 @@ export default function App() {
     setBookings(getBookings());
     setInvoices(getInvoices());
     setQuotations(getQuotations());
-    setCostings(getCostings());
     setShippingLinePayments(getShippingLinePayments());
     setCustomers(getCustomers());
     setKycRecords(getKycRecords());
@@ -1358,7 +1156,7 @@ export default function App() {
   };
 
   const handleExportAllExcel = () => {
-    exportAllRecordsToExcel(bookings, invoices, quotations, shippingLinePayments, costings);
+    exportAllRecordsToExcel(bookings, invoices, quotations, shippingLinePayments);
   };
 
   if (!session.isAuthenticated || !session.currentUser) {
@@ -1376,7 +1174,6 @@ export default function App() {
   const isAdmin = session.currentUser.role === 'ADMIN';
   const plSummary = computeOverallProfitLossSummary(
     quotations,
-    costings,
     invoices,
     shippingLinePayments
   );
@@ -1436,15 +1233,6 @@ export default function App() {
             }`}
           >
             Quotations ({quotations.length})
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab('costing')}
-            className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-colors whitespace-nowrap ${
-              activeTab === 'costing' ? 'bg-amber-700 text-white' : 'text-slate-600 hover:bg-slate-100'
-            }`}
-          >
-            Costing &amp; P/L ({costings.length})
           </button>
           <button
             type="button"
@@ -1539,7 +1327,7 @@ export default function App() {
                   Operations, Profit/Loss &amp; Payment Console
                 </h1>
                 <p className="text-xs sm:text-sm text-slate-300">
-                  Manage Bookings, Quotations &amp; Costing, Invoices, Customer Receivables, and Shipping Line Deadlines in one linked workflow.
+                  Manage Bookings, Quotations, Freight Invoices (with integrated Costing &amp; P/L), Customer Receivables, and Shipping Line Deadlines in one linked workflow.
                 </p>
 
                 {/* Cloud Firestore Live Status Indicator */}
@@ -1580,11 +1368,11 @@ export default function App() {
 
                 <button
                   type="button"
-                  onClick={() => setActiveTab('costing')}
+                  onClick={() => setActiveTab('invoices')}
                   className="px-3 sm:px-3.5 py-2 text-xs font-bold text-white bg-amber-600 hover:bg-amber-500 rounded-lg shadow-sm flex items-center justify-center gap-1.5 transition-colors"
                 >
-                  <Calculator className="w-4 h-4" />
-                  <span>Costing &amp; P/L</span>
+                  <Receipt className="w-4 h-4" />
+                  <span>Invoices &amp; P/L</span>
                 </button>
 
                 <button
@@ -1648,11 +1436,9 @@ export default function App() {
               bookings={bookings}
               invoices={invoices}
               quotations={quotations}
-              costings={costings}
               shippingPayments={shippingLinePayments}
               onSelectBookingsTab={() => setActiveTab('bookings')}
               onSelectQuotationsTab={() => setActiveTab('quotations')}
-              onSelectCostingTab={() => setActiveTab('costing')}
               onSelectInvoicesTab={() => setActiveTab('invoices')}
               onSelectCustomerPaymentsTab={() => setActiveTab('customerPayments')}
               onSelectShippingPaymentsTab={() => setActiveTab('shippingPayments')}
@@ -1914,7 +1700,6 @@ export default function App() {
             onViewQuotation={handleViewQuotation}
             onDownloadQuotationPdf={handleDirectDownloadQuotation}
             onConvertQuotationToInvoice={handleConvertQuotationToInvoice}
-            onCreateCostingFromQuotation={handleCreateCostingFromQuotation}
             prefillBooking={prefillBookingForQuote}
             isModalRequestedExternally={isQuoteExternalOpen}
             externalEditingQuotation={editingQuotationForTab}
@@ -1926,28 +1711,7 @@ export default function App() {
           />
         )}
 
-        {/* VIEW: SHIPMENT COSTING & PROFIT / LOSS */}
-        {activeTab === 'costing' && (
-          <CostingManagement
-            costings={costings}
-            quotations={quotations}
-            bookings={bookings}
-            invoices={invoices}
-            shippingPayments={shippingLinePayments}
-            onSaveCosting={handleSaveCosting}
-            onDeleteCosting={handleDeleteCosting}
-            onConvertCostingToInvoice={handleConvertCostingToInvoice}
-            onCreateShippingPaymentFromCosting={handleCreateShippingPaymentFromCosting}
-            prefillQuotation={costingPrefillQuotation}
-            isModalRequestedExternally={isCostingExternalOpen}
-            onClearExternalModal={() => {
-              setIsCostingExternalOpen(false);
-              setCostingPrefillQuotation(null);
-            }}
-          />
-        )}
-
-        {/* VIEW: INVOICES TAB */}
+        {/* VIEW: INVOICES TAB (With Integrated Selling, Actual Shipping Line Cost & P/L) */}
         {activeTab === 'invoices' && (
           <div className="space-y-4">
             <div className="flex items-center justify-between">
@@ -1959,6 +1723,7 @@ export default function App() {
                 type="button"
                 onClick={() => {
                   setEditingInvoice(null);
+                  setInvoiceModalFocusSection('billing');
                   setPrefillBookingForInvoice(null);
                   setPrefillQuotationForInvoice(null);
                   setIsInvoiceModalOpen(true);
@@ -1973,9 +1738,11 @@ export default function App() {
             <InvoiceList
               invoices={invoices}
               bookings={bookings}
+              shippingPayments={shippingLinePayments}
               language={language}
               onView={handleViewInvoice}
               onEdit={handleEditInvoice}
+              onEditCosting={handleEditInvoiceCosting}
               onDelete={handleDeleteInvoice}
               onDuplicate={handleDuplicateInvoice}
               onToggleStatus={handleToggleInvoiceStatus}
@@ -1983,6 +1750,7 @@ export default function App() {
               onSendCustomer={handleSendInvoice}
               onCreateNew={() => {
                 setEditingInvoice(null);
+                setInvoiceModalFocusSection('billing');
                 setPrefillBookingForInvoice(null);
                 setPrefillQuotationForInvoice(null);
                 setIsInvoiceModalOpen(true);
@@ -2102,6 +1870,7 @@ export default function App() {
         onClose={() => {
           setIsInvoiceModalOpen(false);
           setEditingInvoice(null);
+          setInvoiceModalFocusSection('billing');
           setPrefillBookingForInvoice(null);
           setPrefillQuotationForInvoice(null);
         }}
@@ -2109,9 +1878,11 @@ export default function App() {
         initialData={editingInvoice}
         availableBookings={bookings}
         availableQuotations={quotations}
+        availableShippingPayments={shippingLinePayments}
         customers={customers}
         prefillFromBooking={prefillBookingForInvoice}
         prefillFromQuotation={prefillQuotationForInvoice}
+        initialFocusSection={invoiceModalFocusSection}
       />
 
       {/* 3. Document View & PDF Generator Modal */}

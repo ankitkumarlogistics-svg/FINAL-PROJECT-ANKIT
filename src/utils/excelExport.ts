@@ -4,12 +4,12 @@ import {
   FreightInvoice,
   KycRecord,
   Quotation,
-  ShipmentCosting,
   ShippingLinePayment,
 } from '../types';
 import {
   computeCustomerInvoiceFinance,
   computeShippingPaymentFinance,
+  computeInvoiceProfitLoss,
   computeOverallProfitLossSummary,
 } from './interconnection';
 
@@ -17,8 +17,7 @@ export const exportAllRecordsToExcel = (
   bookings: BookingConfirmation[],
   invoices: FreightInvoice[],
   quotations: Quotation[] = [],
-  shippingPayments: ShippingLinePayment[] = [],
-  costings: ShipmentCosting[] = []
+  shippingPayments: ShippingLinePayment[] = []
 ): void => {
   const wb = XLSX.utils.book_new();
 
@@ -88,33 +87,34 @@ export const exportAllRecordsToExcel = (
       'ETA': q.eta || '',
       'Containers': `${q.containerCount} x ${q.containerSize || "40' HC"}`,
       'Quoted Amount (JPY)': q.totalSellingJpy,
-      'Linked Costing': q.linkedCostingNo || '',
       'Linked Invoice': q.linkedInvoiceNo || '',
     }));
     const wsQuotes = XLSX.utils.json_to_sheet(quotesData);
     XLSX.utils.book_append_sheet(wb, wsQuotes, 'Freight Quotations');
   }
 
-  // 2B. Confirmed Shipment Costings & Profit/Loss Sheet
-  if (costings.length > 0) {
-    const costingsData = costings.map((c) => ({
-      'Costing No': c.costingNo,
-      'Quotation No': c.quotationNo,
-      'Booking No': c.bookingNo,
-      'Shipment No': c.shipmentNo || '',
-      'B/L No': c.blNo || '',
-      'Date': c.date,
-      'Customer': c.customerName,
-      'Shipping Line': c.shippingCompany,
-      'Route': `${c.portFrom} -> ${c.portTo}`,
-      'Selling Price (JPY)': c.totalSellingJpy,
-      'Actual Cost (JPY)': c.totalCostJpy,
-      'Net Profit / Loss (JPY)': c.netProfitLossJpy,
-      'Margin (%)': c.profitMarginPct,
-      'Linked Invoice': c.linkedInvoiceNo || '',
-    }));
-    const wsCostings = XLSX.utils.json_to_sheet(costingsData);
-    XLSX.utils.book_append_sheet(wb, wsCostings, 'Shipment Costings P&L');
+  // 2B. Internal Freight Invoice Selling, Actual Cost & Profit/Loss Sheet
+  if (invoices.length > 0) {
+    const plData = invoices.map((inv) => {
+      const pl = computeInvoiceProfitLoss(inv, shippingPayments);
+      return {
+        'Invoice No': inv.invoiceNo,
+        'Booking No': inv.bookingNo || '',
+        'Shipment No': inv.shipmentNo || '',
+        'B/L No': inv.blNo || '',
+        'Date': inv.date,
+        'Customer': inv.customerName,
+        'Shipping Line': inv.shippingCompany,
+        'Route': `${inv.portFrom} -> ${inv.portTo}`,
+        'Selling Price (JPY)': pl.sellingJpy,
+        'Actual Shipping Line Cost (JPY)': pl.actualCostJpy,
+        'Net Profit / Loss (JPY)': pl.netProfitLossJpy,
+        'Margin (%)': pl.marginPct,
+        'Cost Source': pl.costSource,
+      };
+    });
+    const wsPl = XLSX.utils.json_to_sheet(plData);
+    XLSX.utils.book_append_sheet(wb, wsPl, 'Internal Invoice P&L');
   }
 
   // 3. Freight Invoices & Customer Payments Sheet
@@ -224,14 +224,14 @@ export const exportAllRecordsToExcel = (
   XLSX.utils.book_append_sheet(wb, wsItems, 'Invoice Line Items');
 
   // 6. Overall Financial Summary Sheet
-  const pl = computeOverallProfitLossSummary(quotations, costings, invoices, shippingPayments);
+  const pl = computeOverallProfitLossSummary(quotations, invoices, shippingPayments);
 
   const summaryData = [
     { Metric: 'Total Booking Records', Value: bookings.length },
     { Metric: 'Total Quotations', Value: quotations.length },
-    { Metric: 'Confirmed Shipment Costings', Value: costings.length },
     { Metric: 'Total Invoice Records', Value: invoices.length },
-    { Metric: 'Confirmed Revenue (JPY)', Value: `¥${pl.totalRevenueJpy.toLocaleString()}` },
+    { Metric: 'Invoices With Actual Cost', Value: pl.costEnteredCount },
+    { Metric: 'Total Selling Amount (JPY)', Value: `¥${pl.totalRevenueJpy.toLocaleString()}` },
     { Metric: 'Total Shipment Cost (JPY)', Value: `¥${pl.totalCostJpy.toLocaleString()}` },
     { Metric: 'Total Profit (JPY)', Value: `¥${pl.totalProfitJpy.toLocaleString()}` },
     { Metric: 'Total Loss (JPY)', Value: `¥${pl.totalLossJpy.toLocaleString()}` },
@@ -272,7 +272,6 @@ export const exportQuotationsToExcel = (quotations: Quotation[]): void => {
     'ETA': q.eta || '',
     'Containers': `${q.containerCount} x ${q.containerSize || "40' HC"}`,
     'Quoted Selling Price (JPY)': q.totalSellingJpy,
-    'Linked Costing No': q.linkedCostingNo || '',
     'Linked Invoice No': q.linkedInvoiceNo || '',
     'Remarks': q.remarks,
   }));
@@ -280,34 +279,6 @@ export const exportQuotationsToExcel = (quotations: Quotation[]): void => {
   XLSX.utils.book_append_sheet(wb, ws, 'Freight Quotations');
   const dateStr = new Date().toISOString().slice(0, 10);
   XLSX.writeFile(wb, `Freight_Quotations_${dateStr}.xlsx`);
-};
-
-export const exportCostingsToExcel = (costings: ShipmentCosting[]): void => {
-  const wb = XLSX.utils.book_new();
-  const data = costings.map((c) => ({
-    'Costing No': c.costingNo,
-    'Quotation No': c.quotationNo,
-    'Booking No': c.bookingNo,
-    'Shipment No': c.shipmentNo || '',
-    'B/L No': c.blNo || '',
-    'Date': c.date,
-    'Customer': c.customerName,
-    'Shipping Line': c.shippingCompany,
-    'Vessel & Voy': c.vesselVoyage,
-    'Port From': c.portFrom,
-    'Port To': c.portTo,
-    'Containers': `${c.containerCount} x ${c.containerSize || "40' HC"}`,
-    'Selling Price (JPY)': c.totalSellingJpy,
-    'Actual Shipment Cost (JPY)': c.totalCostJpy,
-    'Net Profit / Loss (JPY)': c.netProfitLossJpy,
-    'Profit Margin (%)': c.profitMarginPct,
-    'Linked Invoice No': c.linkedInvoiceNo || '',
-    'Remarks': c.remarks || '',
-  }));
-  const ws = XLSX.utils.json_to_sheet(data);
-  XLSX.utils.book_append_sheet(wb, ws, 'Shipment Costing & P&L');
-  const dateStr = new Date().toISOString().slice(0, 10);
-  XLSX.writeFile(wb, `Shipment_Costing_ProfitLoss_${dateStr}.xlsx`);
 };
 
 export const exportShippingLinePaymentsToExcel = (payments: ShippingLinePayment[]): void => {
