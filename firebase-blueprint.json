@@ -1,0 +1,281 @@
+{
+  "entities": {
+    "customer": {
+      "title": "Customer Details (Module 1)",
+      "description": "Customer profile with address lines, contacts, sales person and remarks",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "name": { "type": "string", "maxLength": 200 },
+        "addressLine1": { "type": "string", "maxLength": 255 },
+        "addressLine2": { "type": "string", "maxLength": 255 },
+        "tel": { "type": "string", "maxLength": 50 },
+        "fax": { "type": "string", "maxLength": 50 },
+        "email": { "type": "string", "maxLength": 100 },
+        "taxId": { "type": "string", "maxLength": 50 },
+        "salesPerson": { "type": "string", "maxLength": 100 },
+        "remark1": { "type": "string", "maxLength": 500 },
+        "remark2": { "type": "string", "maxLength": 500 }
+      },
+      "required": ["id", "name"]
+    },
+    "shipper": {
+      "title": "Shipper (Module 2)",
+      "description": "Shipper company details",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "name": { "type": "string", "maxLength": 200 },
+        "addressLine1": { "type": "string", "maxLength": 255 },
+        "addressLine2": { "type": "string", "maxLength": 255 },
+        "tel": { "type": "string", "maxLength": 50 },
+        "fax": { "type": "string", "maxLength": 50 },
+        "email": { "type": "string", "maxLength": 100 },
+        "taxId": { "type": "string", "maxLength": 50 },
+        "remark": { "type": "string", "maxLength": 500 }
+      },
+      "required": ["id", "name"]
+    },
+    "consignee": {
+      "title": "Consignee (Module 2)",
+      "description": "Consignee company details",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "name": { "type": "string", "maxLength": 200 },
+        "addressLine1": { "type": "string", "maxLength": 255 },
+        "addressLine2": { "type": "string", "maxLength": 255 },
+        "tel": { "type": "string", "maxLength": 50 },
+        "fax": { "type": "string", "maxLength": 50 },
+        "email": { "type": "string", "maxLength": 100 },
+        "taxId": { "type": "string", "maxLength": 50 },
+        "remark": { "type": "string", "maxLength": 500 }
+      },
+      "required": ["id", "name"]
+    },
+    "notifyParty": {
+      "title": "Notify Party (Module 2)",
+      "description": "Notify Party details",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "name": { "type": "string", "maxLength": 200 },
+        "addressLine1": { "type": "string", "maxLength": 255 },
+        "addressLine2": { "type": "string", "maxLength": 255 },
+        "tel": { "type": "string", "maxLength": 50 },
+        "fax": { "type": "string", "maxLength": 50 },
+        "email": { "type": "string", "maxLength": 100 },
+        "taxId": { "type": "string", "maxLength": 50 },
+        "remark": { "type": "string", "maxLength": 500 }
+      },
+      "required": ["id", "name"]
+    },
+    "stock": {
+      "title": "Vehicle Stock Item (Module 3)",
+      "description": "Vehicle stock record in yard inventory",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "chassisNumber": { "type": "string", "maxLength": 100 },
+        "engineNumber": { "type": "string", "maxLength": 100 },
+        "auctionNumber": { "type": "string", "maxLength": 100 },
+        "customerStockNumber": { "type": "string", "maxLength": 100 },
+        "customerCompany": { "type": "string", "maxLength": 200 },
+        "shipperCompany": { "type": "string", "maxLength": 200 },
+        "color": { "type": "string", "maxLength": 100 },
+        "model": { "type": "string", "maxLength": 150 },
+        "portTo": { "type": "string", "maxLength": 100 },
+        "destination": { "type": "string", "maxLength": 150 },
+        "yardIn": { "type": "string", "maxLength": 30 },
+        "yardOut": { "type": "string", "maxLength": 30 },
+        "yardName": { "type": "string", "maxLength": 150 },
+        "yardPosition": { "type": "string", "maxLength": 100 },
+        "status": { "type": "string", "maxLength": 50 },
+        "remarks": { "type": "string", "maxLength": 500 }
+      },
+      "required": ["id", "chassisNumber", "customerCompany", "shipperCompany", "model", "status"]
+    },
+    "truckingSheet": {
+      "title": "Trucking Sheet (Module 3A)",
+      "description": "Vehicle dispatch transport sheet record",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "sheetNumber": { "type": "string", "maxLength": 100 },
+        "customerCompany": { "type": "string", "maxLength": 200 },
+        "shipperCompany": { "type": "string", "maxLength": 200 },
+        "truckingCompany": { "type": "string", "maxLength": 200 },
+        "isNonBillable": { "type": "boolean" },
+        "pickupDate": { "type": "string", "maxLength": 30 },
+        "deliveryDate": { "type": "string", "maxLength": 30 },
+        "pickupLocation": { "type": "string", "maxLength": 255 },
+        "deliveryLocation": { "type": "string", "maxLength": 255 },
+        "auctionBuyer": { "type": "string", "maxLength": 150 },
+        "posNumber": { "type": "string", "maxLength": 100 },
+        "truckingCompanyRemarks": { "type": "string", "maxLength": 500 },
+        "customerRemarks": { "type": "string", "maxLength": 500 },
+        "internalRemarks": { "type": "string", "maxLength": 500 }
+      },
+      "required": [
+        "id",
+        "customerCompany",
+        "shipperCompany",
+        "truckingCompany",
+        "pickupDate",
+        "deliveryDate",
+        "pickupLocation",
+        "deliveryLocation"
+      ]
+    },
+    "truckingCompany": {
+      "title": "Trucking Company (Module 3B)",
+      "description": "Bilingual English and Japanese trucking contractor directory record",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "companyNameEn": { "type": "string", "maxLength": 200 },
+        "companyNameJp": { "type": "string", "maxLength": 200 },
+        "contactPersonEn": { "type": "string", "maxLength": 150 },
+        "contactPersonJp": { "type": "string", "maxLength": 150 },
+        "email": { "type": "string", "maxLength": 100 },
+        "phoneNumber": { "type": "string", "maxLength": 50 },
+        "fax": { "type": "string", "maxLength": 50 },
+        "mobileNumber": { "type": "string", "maxLength": 50 },
+        "postBox": { "type": "string", "maxLength": 30 },
+        "prefectureEn": { "type": "string", "maxLength": 100 },
+        "prefectureJp": { "type": "string", "maxLength": 100 },
+        "cityEn": { "type": "string", "maxLength": 100 },
+        "cityJp": { "type": "string", "maxLength": 100 },
+        "addressEn": { "type": "string", "maxLength": 255 },
+        "addressJp": { "type": "string", "maxLength": 255 }
+      },
+      "required": [
+        "id",
+        "companyNameEn",
+        "companyNameJp",
+        "contactPersonEn",
+        "contactPersonJp",
+        "phoneNumber",
+        "fax"
+      ]
+    },
+    "booking": {
+      "title": "Booking Confirmation & KYC",
+      "description": "Logistics ocean freight booking confirmation and KYC record",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "bookingNumber": { "type": "string", "maxLength": 100 },
+        "date": { "type": "string", "maxLength": 30 },
+        "status": { "type": "string", "enum": ["DRAFT", "CONFIRMED", "SHIPPED", "CANCELLED"] },
+        "customerCompany": { "type": "string", "maxLength": 200 },
+        "forwarderCompany": { "type": "string", "maxLength": 200 },
+        "shipperCompany": { "type": "string", "maxLength": 200 },
+        "consigneeCompany": { "type": "string", "maxLength": 200 },
+        "notifyParty": { "type": "string", "maxLength": 200 },
+        "alsoNotifyParty": { "type": "string", "maxLength": 200 },
+        "valueType": { "type": "string", "enum": ["JPY", "USD", "EURO"] },
+        "incoterm": { "type": "string", "maxLength": 50 },
+        "fpod": { "type": "string", "maxLength": 100 },
+        "pod": { "type": "string", "maxLength": 100 },
+        "shippingCompany": { "type": "string", "maxLength": 150 },
+        "vessel": { "type": "string", "maxLength": 150 },
+        "voyage": { "type": "string", "maxLength": 100 },
+        "cyCutDate": { "type": "string", "maxLength": 30 },
+        "etd": { "type": "string", "maxLength": 30 },
+        "eta": { "type": "string", "maxLength": 30 }
+      },
+      "required": ["id", "bookingNumber", "status"]
+    },
+    "invoice": {
+      "title": "Freight Invoice",
+      "description": "Freight invoice record with line items and payment tracking",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "invoiceNo": { "type": "string", "maxLength": 100 },
+        "status": { "type": "string", "enum": ["UNPAID", "PAID", "PARTIAL", "OVERDUE", "PENDING", "CANCELLED"] }
+      },
+      "required": ["id", "invoiceNo", "status"]
+    },
+    "quotation": {
+      "title": "Shipment Quotation",
+      "description": "Customer freight quotation supporting Reference Only (Method 1, without Booking No) and Confirmed Booking (Method 2, with Booking No) plus editable Terms & Conditions",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "quotationNo": { "type": "string", "maxLength": 100 },
+        "status": { "type": "string", "enum": ["DRAFT", "SENT", "ACCEPTED", "REJECTED", "EXPIRED", "CONVERTED"] },
+        "quotationMethod": { "type": "string", "enum": ["REFERENCE", "CONFIRMED_BOOKING"] },
+        "customerName": { "type": "string", "maxLength": 200 },
+        "bookingNo": { "type": "string", "maxLength": 100 },
+        "shipmentNo": { "type": "string", "maxLength": 100 },
+        "blNo": { "type": "string", "maxLength": 100 }
+      },
+      "required": ["id", "quotationNo", "status"]
+    },
+    "shipmentCosting": {
+      "title": "Confirmed Shipment Costing & Profit/Loss",
+      "description": "Actual shipment costing linked to a confirmed Quotation & Booking Number for shipment-wise and company Profit/Loss",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "costingNo": { "type": "string", "maxLength": 100 },
+        "quotationNo": { "type": "string", "maxLength": 100 },
+        "bookingNo": { "type": "string", "maxLength": 100 },
+        "shipmentNo": { "type": "string", "maxLength": 100 },
+        "customerName": { "type": "string", "maxLength": 200 }
+      },
+      "required": ["id", "costingNo", "bookingNo", "quotationNo"]
+    },
+    "shippingLinePayment": {
+      "title": "Shipping Line Payment Tracking",
+      "description": "Payments payable to shipping lines with deadline alerts and settlement history",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "shippingLineName": { "type": "string", "maxLength": 200 },
+        "bookingNo": { "type": "string", "maxLength": 100 },
+        "blNo": { "type": "string", "maxLength": 100 },
+        "status": { "type": "string", "enum": ["PAID", "PARTIAL", "PENDING", "OVERDUE"] }
+      },
+      "required": ["id", "shippingLineName", "status"]
+    },
+    "companyProfile": {
+      "title": "Company Profile",
+      "type": "object",
+      "properties": {
+        "companyNameEn": { "type": "string", "maxLength": 200 },
+        "registrationNumber": { "type": "string", "maxLength": 100 }
+      },
+      "required": ["companyNameEn", "registrationNumber"]
+    },
+    "appUser": {
+      "title": "Team Member",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "userId": { "type": "string", "maxLength": 100 },
+        "name": { "type": "string", "maxLength": 150 },
+        "role": { "type": "string", "enum": ["ADMIN", "STAFF"] }
+      },
+      "required": ["id", "userId", "name", "role", "status"]
+    }
+  },
+  "firestore": {
+    "/customers/{customerId}": { "schema": "customer" },
+    "/shippers/{shipperId}": { "schema": "shipper" },
+    "/consignees/{consigneeId}": { "schema": "consignee" },
+    "/notifyParties/{notifyId}": { "schema": "notifyParty" },
+    "/stocks/{stockId}": { "schema": "stock" },
+    "/truckingSheets/{sheetId}": { "schema": "truckingSheet" },
+    "/truckingCompanies/{companyId}": { "schema": "truckingCompany" },
+    "/bookings/{bookingId}": { "schema": "booking" },
+    "/invoices/{invoiceId}": { "schema": "invoice" },
+    "/quotations/{quotationId}": { "schema": "quotation" },
+    "/shipmentCostings/{costingId}": { "schema": "shipmentCosting" },
+    "/shippingLinePayments/{paymentId}": { "schema": "shippingLinePayment" },
+    "/settings/{settingId}": { "schema": "companyProfile" },
+    "/users/{userId}": { "schema": "appUser" }
+  }
+}

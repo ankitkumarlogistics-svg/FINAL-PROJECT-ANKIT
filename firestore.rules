@@ -1,0 +1,198 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function isValidBooking(data) {
+      return data is map &&
+        data.keys().hasAll(['id', 'bookingNumber', 'status']) &&
+        data.id is string && data.id.size() <= 128 &&
+        data.bookingNumber is string && data.bookingNumber.size() <= 100 &&
+        data.status in ['DRAFT', 'CONFIRMED', 'SHIPPED', 'CANCELLED'];
+    }
+
+    function isValidInvoice(data) {
+      return data is map &&
+        data.keys().hasAll(['id', 'invoiceNo', 'status']) &&
+        data.id is string && data.id.size() <= 128 &&
+        data.invoiceNo is string && data.invoiceNo.size() <= 100 &&
+        data.status in ['UNPAID', 'PAID', 'CANCELLED', 'PARTIAL', 'OVERDUE', 'PENDING'];
+    }
+
+    function isValidQuotation(data) {
+      return data is map &&
+        data.keys().hasAll(['id', 'quotationNo', 'status']) &&
+        data.id is string && data.id.size() <= 128 &&
+        data.quotationNo is string && data.quotationNo.size() <= 100 &&
+        data.status in ['DRAFT', 'SENT', 'ACCEPTED', 'REJECTED', 'EXPIRED', 'CONVERTED'];
+    }
+
+    function isValidShipmentCosting(data) {
+      return data is map &&
+        data.keys().hasAll(['id', 'costingNo', 'quotationNo', 'bookingNo']) &&
+        data.id is string && data.id.size() <= 128 &&
+        data.costingNo is string && data.costingNo.size() <= 100 &&
+        data.quotationNo is string && data.quotationNo.size() <= 100 &&
+        data.bookingNo is string && data.bookingNo.size() > 0 && data.bookingNo.size() <= 100;
+    }
+
+    function isValidShippingLinePayment(data) {
+      return data is map &&
+        data.keys().hasAll(['id', 'shippingLineName', 'status']) &&
+        data.id is string && data.id.size() <= 128 &&
+        data.shippingLineName is string && data.shippingLineName.size() <= 200 &&
+        data.status in ['PAID', 'PARTIAL', 'PENDING', 'OVERDUE'];
+    }
+
+    function isValidCompanyProfile(data) {
+      return data is map &&
+        data.keys().hasAll(['companyNameEn', 'registrationNumber']) &&
+        data.companyNameEn is string && data.companyNameEn.size() <= 200 &&
+        data.registrationNumber is string && data.registrationNumber.size() <= 100;
+    }
+
+    function isValidUser(data) {
+      return data is map &&
+        data.keys().hasAll(['id', 'userId', 'name', 'role', 'status']) &&
+        data.id is string && data.id.size() <= 128 &&
+        data.userId is string && data.userId.size() <= 100 &&
+        data.name is string && data.name.size() <= 150 &&
+        data.role in ['ADMIN', 'STAFF'] &&
+        data.status in ['ACTIVE', 'INACTIVE', 'DISABLED'];
+    }
+
+    // Default deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Connection health check
+    match /test/{testId} {
+      allow read, write: if true;
+    }
+
+    // Operational Bookings & Shipping
+    match /bookings/{bookingId} {
+      allow get, list: if true;
+      allow create: if isValidId(bookingId) && isValidBooking(incoming());
+      allow update: if isValidId(bookingId) && isValidBooking(incoming());
+      allow delete: if isValidId(bookingId);
+    }
+
+    // Operational Invoices
+    match /invoices/{invoiceId} {
+      allow get, list: if true;
+      allow create: if isValidId(invoiceId) && isValidInvoice(incoming());
+      allow update: if isValidId(invoiceId) && isValidInvoice(incoming());
+      allow delete: if isValidId(invoiceId);
+    }
+
+    // Quotation Module
+    match /quotations/{quotationId} {
+      allow get, list: if true;
+      allow create: if isValidId(quotationId) && isValidQuotation(incoming());
+      allow update: if isValidId(quotationId) && isValidQuotation(incoming());
+      allow delete: if isValidId(quotationId);
+    }
+
+    // Confirmed Shipment Costing & Profit/Loss Module
+    match /shipmentCostings/{costingId} {
+      allow get, list: if true;
+      allow create: if isValidId(costingId) && isValidShipmentCosting(incoming());
+      allow update: if isValidId(costingId) && isValidShipmentCosting(incoming());
+      allow delete: if isValidId(costingId);
+    }
+
+    // Shipping Line Payment Tracking Module
+    match /shippingLinePayments/{paymentId} {
+      allow get, list: if true;
+      allow create: if isValidId(paymentId) && isValidShippingLinePayment(incoming());
+      allow update: if isValidId(paymentId) && isValidShippingLinePayment(incoming());
+      allow delete: if isValidId(paymentId);
+    }
+
+    // Module 1: Customers
+    match /customers/{customerId} {
+      allow get, list: if true;
+      allow create, update: if isValidId(customerId);
+      allow delete: if isValidId(customerId);
+    }
+
+    // Module 2: Shippers
+    match /shippers/{shipperId} {
+      allow get, list: if true;
+      allow create, update: if isValidId(shipperId);
+      allow delete: if isValidId(shipperId);
+    }
+
+    // Module 2: Consignees
+    match /consignees/{consigneeId} {
+      allow get, list: if true;
+      allow create, update: if isValidId(consigneeId);
+      allow delete: if isValidId(consigneeId);
+    }
+
+    // Module 2: Notify Parties
+    match /notifyParties/{notifyId} {
+      allow get, list: if true;
+      allow create, update: if isValidId(notifyId);
+      allow delete: if isValidId(notifyId);
+    }
+
+    // Module 3: Stocks
+    match /stocks/{stockId} {
+      allow get, list: if true;
+      allow create, update: if isValidId(stockId);
+      allow delete: if isValidId(stockId);
+    }
+
+    // Module 3A: Trucking Sheets
+    match /truckingSheets/{sheetId} {
+      allow get, list: if true;
+      allow create, update: if isValidId(sheetId);
+      allow delete: if isValidId(sheetId);
+    }
+
+    // Module 3B: Trucking Companies
+    match /truckingCompanies/{companyId} {
+      allow get, list: if true;
+      allow create, update: if isValidId(companyId);
+      allow delete: if isValidId(companyId);
+    }
+
+    // KYC Documents & Verification Compliance (Dedicated Module)
+    match /kyc/{kycId} {
+      allow get, list: if true;
+      allow create, update: if isValidId(kycId);
+      allow delete: if isValidId(kycId);
+    }
+
+    // Master Data
+    match /masters/{masterId} {
+      allow get, list: if true;
+      allow create, update: if isValidId(masterId);
+      allow delete: if isValidId(masterId);
+    }
+
+    // Company profile & system configurations
+    match /settings/{settingId} {
+      allow get, list: if true;
+      allow create, update: if isValidId(settingId) && isValidCompanyProfile(incoming());
+      allow delete: if false;
+    }
+
+    // Team member accounts
+    match /users/{userId} {
+      allow get, list: if true;
+      allow create, update: if isValidId(userId) && isValidUser(incoming());
+      allow delete: if isValidId(userId);
+    }
+  }
+}
