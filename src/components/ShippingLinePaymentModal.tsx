@@ -47,7 +47,7 @@ export const ShippingLinePaymentModal: React.FC<ShippingLinePaymentModalProps> =
     portTo: '',
     payableAmountJpy: 0,
     amountPaidJpy: 0,
-    paymentDeadline: new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10),
+    paymentDeadline: '',
     paymentDate: '',
     remarks: '',
   });
@@ -127,20 +127,20 @@ export const ShippingLinePaymentModal: React.FC<ShippingLinePaymentModalProps> =
       const rnd = Math.floor(1000 + Math.random() * 9000);
       setFormData({
         paymentRefNo: `SLP-2026-${rnd}`,
-        shippingLineName: shippingLines[0] || '',
+        shippingLineName: '',
         bookingNo: '',
         shipmentNo: '',
         blNo: '',
         customerName: '',
         containerCount: 1,
         containerSize: "40' HC",
-        containerDetails: "1 X 40' HC",
+        containerDetails: '',
         vesselVoyage: '',
         portFrom: '',
         portTo: '',
         payableAmountJpy: 0,
         amountPaidJpy: 0,
-        paymentDeadline: new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10),
+        paymentDeadline: '',
         paymentDate: '',
         remarks: '',
       });

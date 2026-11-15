@@ -177,17 +177,8 @@ export const KycManagement: React.FC<KycManagementProps> = ({
     setFormData({
       id: `kyc-${Date.now()}`,
       kycNumber: autoNo,
-      customerCompany: customers[0]?.name || '',
-      shipper: {
-        name: companyProfile.companyNameEn || 'YOKOHAMA TRADING & LOGISTICS CO., LTD.',
-        addressLine1: companyProfile.addressEn || '2833-165 SAKASAI, BANDO-SHI',
-        addressLine2: 'IBARAKI-KEN 306-0501, JAPAN',
-        tel: companyProfile.phone || '+81-280-33-3423',
-        fax: companyProfile.fax || '+81-280-33-6367',
-        email: companyProfile.email || 'logistics@ytandl.co.jp',
-        taxId: companyProfile.registrationNumber || 'T9120001213448',
-        remark: 'LICENSED JAPANESE USED AUTOMOBILE & HEAVY MACHINERY EXPORTER',
-      },
+      customerCompany: '',
+      shipper: { ...EMPTY_PARTY },
       consignee: { ...EMPTY_PARTY },
       notifyParty: { ...EMPTY_PARTY },
       hasAlsoNotify: false,
@@ -196,7 +187,7 @@ export const KycManagement: React.FC<KycManagementProps> = ({
       pod: '',
       status: 'VERIFIED',
       documentDate: new Date().toISOString().slice(0, 10),
-      remarks: 'Standard verified KYC registration compliance.',
+      remarks: '',
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     });

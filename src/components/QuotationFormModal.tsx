@@ -67,15 +67,15 @@ export const QuotationFormModal: React.FC<QuotationFormModalProps> = ({
     customerName: '',
     customerAddress: '',
     customerEmail: '',
-    portFrom: 'NAGOYA',
-    portTo: 'DUBLIN',
-    shippingCompany: 'CMA-CGM',
+    portFrom: '',
+    portTo: '',
+    shippingCompany: '',
     vesselVoyage: '',
     etd: '',
     eta: '',
     cyOpenDate: '',
     cyCutDate: '',
-    shipmentMode: "1 X 40' HC",
+    shipmentMode: '',
     freightTerm: 'PREPAID',
     exchangeRate: 155,
     containerCount: 1,
@@ -226,7 +226,7 @@ export const QuotationFormModal: React.FC<QuotationFormModalProps> = ({
       setFormData({
         quotationNo: `QT-2026-${rnd}`,
         date: new Date().toISOString().slice(0, 10),
-        validUntil: new Date(Date.now() + 14 * 86400000).toISOString().slice(0, 10),
+        validUntil: '',
         status: 'DRAFT',
         bookingNo: '',
         shipmentNo: '',
@@ -234,15 +234,15 @@ export const QuotationFormModal: React.FC<QuotationFormModalProps> = ({
         customerName: '',
         customerAddress: '',
         customerEmail: '',
-        portFrom: 'NAGOYA',
-        portTo: 'DUBLIN',
-        shippingCompany: 'CMA-CGM',
+        portFrom: '',
+        portTo: '',
+        shippingCompany: '',
         vesselVoyage: '',
         etd: '',
         eta: '',
         cyOpenDate: '',
         cyCutDate: '',
-        shipmentMode: "1 X 40' HC",
+        shipmentMode: '',
         freightTerm: 'PREPAID',
         exchangeRate: 155,
         containerCount: 1,
@@ -253,23 +253,13 @@ export const QuotationFormModal: React.FC<QuotationFormModalProps> = ({
       setSellingItems([
         {
           id: `qs-${Date.now()}-1`,
-          details: 'Freight',
-          description: "OCEAN FREIGHT (40' HC)",
+          details: '',
+          description: '',
           currency: 'USD',
-          unitPrice: 2200,
-          quantity: 1,
+          unitPrice: 0,
+          quantity: null,
           taxRate: 0,
-          lineTotalJpy: Math.round(2200 * 155),
-        },
-        {
-          id: `qs-${Date.now()}-2`,
-          details: 'Doc Fee',
-          description: 'DOCUMENTATION FEE',
-          currency: 'JPY',
-          unitPrice: 6600,
-          quantity: 1,
-          taxRate: 10,
-          lineTotalJpy: 7260,
+          lineTotalJpy: 0,
         },
       ]);
       setTermsList([...DEFAULT_QUOTATION_TERMS]);
@@ -337,20 +327,6 @@ export const QuotationFormModal: React.FC<QuotationFormModalProps> = ({
     }
   };
 
-  const handleCustomerSelect = (name: string) => {
-    setIsDirty(true);
-    const found = customers.find((c) => c.name.toLowerCase() === name.toLowerCase());
-    setFormData((prev) => ({
-      ...prev,
-      customerName: name,
-      customerId: found?.id || prev.customerId,
-      customerAddress: found
-        ? [found.addressLine1, found.addressLine2].filter(Boolean).join(', ')
-        : prev.customerAddress || '',
-      customerEmail: found?.email || prev.customerEmail || '',
-    }));
-  };
-
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setValidationError('');
@@ -407,9 +383,9 @@ export const QuotationFormModal: React.FC<QuotationFormModalProps> = ({
       bookingNo: cleanBookingNo,
       shipmentNo: cleanBookingNo ? (formData.shipmentNo || '').trim().toUpperCase() : '',
       blNo: cleanBookingNo ? (formData.blNo || '').trim().toUpperCase() : '',
-      customerName: formData.customerName?.trim() || 'General Customer',
-      customerAddress: formData.customerAddress || '',
-      portFrom: formData.portFrom || 'NAGOYA',
+      customerName: cleanBookingNo ? formData.customerName?.trim() || '' : '',
+      customerAddress: cleanBookingNo ? formData.customerAddress || '' : '',
+      portFrom: formData.portFrom || '',
       portTo: formData.portTo || '',
       shippingCompany: formData.shippingCompany || '',
       vesselVoyage: formData.vesselVoyage || '',
@@ -417,9 +393,7 @@ export const QuotationFormModal: React.FC<QuotationFormModalProps> = ({
       eta: formData.eta || '',
       cyOpenDate: formData.cyOpenDate || '',
       cyCutDate: formData.cyCutDate || '',
-      shipmentMode:
-        formData.shipmentMode ||
-        `${formData.containerCount || 1} X ${formData.containerSize || "40' HC"}`,
+      shipmentMode: formData.shipmentMode || '',
       freightTerm: formData.freightTerm || 'PREPAID',
       exchangeRate: rate,
       containerCount: Number(formData.containerCount) || 1,
@@ -739,45 +713,7 @@ export const QuotationFormModal: React.FC<QuotationFormModalProps> = ({
                 </div>
               </div>
 
-              {/* Section 2: Internal Customer Reference (Hidden from Quotation PDF) */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-slate-200">
-                <div>
-                  <label className="block font-bold text-slate-700 uppercase mb-1">
-                    Customer Name (Internal Ref — Not on PDF)
-                  </label>
-                  <input
-                    type="text"
-                    list="quo-customer-list"
-                    placeholder="Optional (leave blank for multi-customer quote)"
-                    value={formData.customerName || ''}
-                    onChange={(e) => handleCustomerSelect(e.target.value)}
-                    className="w-full px-2.5 py-2 text-xs border border-slate-300 rounded-lg font-semibold"
-                  />
-                  <datalist id="quo-customer-list">
-                    {customers.map((c) => (
-                      <option key={c.id} value={c.name} />
-                    ))}
-                  </datalist>
-                </div>
-
-                <div>
-                  <label className="block font-bold text-slate-700 uppercase mb-1">
-                    Customer Address (Internal Ref — Not on PDF)
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="Optional internal address"
-                    value={formData.customerAddress || ''}
-                    onChange={(e) => {
-                      setIsDirty(true);
-                      setFormData((p) => ({ ...p, customerAddress: e.target.value }));
-                    }}
-                    className="w-full px-2.5 py-2 text-xs border border-slate-300 rounded-lg"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+              <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 pt-2 border-t border-slate-200">
                 <div>
                   <label className="block font-bold text-slate-700 uppercase mb-1">POL (From)</label>
                   <input
@@ -865,7 +801,7 @@ export const QuotationFormModal: React.FC<QuotationFormModalProps> = ({
                 </div>
                 <div>
                   <label className="block font-bold text-amber-800 uppercase mb-1">
-                    CY CUT
+                    CY CUT DATE
                   </label>
                   <input
                     type="date"
@@ -929,13 +865,13 @@ export const QuotationFormModal: React.FC<QuotationFormModalProps> = ({
                         ...prev,
                         {
                           id: `qs-${Date.now()}`,
-                          details: 'Other Charges',
-                          description: 'HANDLING / PORT FEE',
+                          details: '',
+                          description: '',
                           currency: 'JPY',
-                          unitPrice: 5000,
-                          quantity: 1,
+                          unitPrice: 0,
+                          quantity: null,
                           taxRate: 0,
-                          lineTotalJpy: 5000,
+                          lineTotalJpy: 0,
                         },
                       ]);
                     }}

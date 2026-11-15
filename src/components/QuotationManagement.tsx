@@ -355,14 +355,16 @@ export const QuotationManagement: React.FC<QuotationManagementProps> = ({
                         {q.status}
                       </span>
                     </div>
-                    <div className="text-xs font-bold text-slate-900">{q.customerName}</div>
+                    <div className="text-xs font-bold text-slate-900">
+                      {q.customerName || q.shippingCompany || 'Multi-Customer Quotation'}
+                    </div>
                     <div className="text-[11px] text-slate-500 font-mono">
                       {q.bookingNo ? `BK: ${q.bookingNo}` : 'Method 1: Reference Quote (No Booking)'} ·{' '}
-                      {q.portFrom} → {q.portTo}
+                      {q.portFrom || '—'} → {q.portTo || '—'}
                     </div>
                     <div className="grid grid-cols-2 gap-1.5 text-[10.5px] font-mono bg-slate-50 p-2 rounded border border-slate-200">
                       <div><span className="font-bold text-slate-500">CY OPEN:</span> {q.cyOpenDate || '—'}</div>
-                      <div><span className="font-bold text-slate-500">CY CUT:</span> {q.cyCutDate || '—'}</div>
+                      <div><span className="font-bold text-slate-500">CY CUT DATE:</span> {q.cyCutDate || '—'}</div>
                       <div><span className="font-bold text-slate-500">ETD:</span> {q.etd || '—'}</div>
                       <div><span className="font-bold text-slate-500">ETA:</span> {q.eta || '—'}</div>
                     </div>
@@ -470,9 +472,11 @@ export const QuotationManagement: React.FC<QuotationManagementProps> = ({
                           )}
                         </td>
                         <td className="py-3 px-3">
-                          <div className="font-semibold text-slate-900">{q.customerName}</div>
+                          <div className="font-semibold text-slate-900">
+                            {q.customerName || q.shippingCompany || 'Multi-Customer Quote'}
+                          </div>
                           <div className="text-[11px] text-slate-500">
-                            {q.portFrom} → <span className="font-semibold text-slate-700">{q.portTo}</span> ({q.shipmentMode})
+                            {q.portFrom || '—'} → <span className="font-semibold text-slate-700">{q.portTo || '—'}</span>{q.shipmentMode ? ` (${q.shipmentMode})` : ''}
                           </div>
                         </td>
                         <td className="py-3 px-3 font-mono text-[10.5px] text-slate-700 whitespace-nowrap">

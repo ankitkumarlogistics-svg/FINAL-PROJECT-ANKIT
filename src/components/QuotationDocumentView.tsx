@@ -132,7 +132,7 @@ export const QuotationDocumentView: React.FC<QuotationDocumentViewProps> = ({
                     {quotation.cyOpenDate || '—'}
                   </td>
                   <td className="p-1.5 font-bold bg-slate-100 border-r border-slate-300 text-slate-800">
-                    CY CUT
+                    CY CUT DATE
                   </td>
                   <td className="p-1.5 font-mono font-semibold text-slate-900">
                     {quotation.cyCutDate || '—'}
