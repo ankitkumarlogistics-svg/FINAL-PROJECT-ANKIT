@@ -107,6 +107,8 @@ Quotation Summary:
 - Quotation No: ${quotation.quotationNo}
 - Route: ${quotation.portFrom} to ${quotation.portTo}
 - Carrier: ${quotation.shippingCompany}${quotation.vesselVoyage ? ` (${quotation.vesselVoyage})` : ''}
+- CY Open / CY Cut: ${quotation.cyOpenDate || 'TBD'} / ${quotation.cyCutDate || 'TBD'}
+- ETD / ETA: ${quotation.etd || 'TBD'} / ${quotation.eta || 'TBD'}
 - Containers: ${quotation.containerCount} x ${quotation.containerSize || "40' HC"}
 - Quoted Total: ¥${quotation.totalSellingJpy.toLocaleString()} JPY (Est. Rate: ¥${quotation.exchangeRate}/USD)
 

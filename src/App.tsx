@@ -495,6 +495,8 @@ export default function App() {
           portTo: booking.pod || q.portTo,
           etd: booking.etd || q.etd,
           eta: booking.eta || q.eta,
+          cyOpenDate: booking.cyCutOpen || booking.cyOpenDate || q.cyOpenDate,
+          cyCutDate: booking.cyCutDate || q.cyCutDate,
           containerCount: booking.containerCount || q.containerCount,
           containerSize: booking.containerSize || q.containerSize,
           containerNumbers: booking.containerNumbers || q.containerNumbers,

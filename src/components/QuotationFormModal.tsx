@@ -73,6 +73,8 @@ export const QuotationFormModal: React.FC<QuotationFormModalProps> = ({
     vesselVoyage: '',
     etd: '',
     eta: '',
+    cyOpenDate: '',
+    cyCutDate: '',
     shipmentMode: "1 X 40' HC",
     freightTerm: 'PREPAID',
     exchangeRate: 155,
@@ -136,6 +138,8 @@ export const QuotationFormModal: React.FC<QuotationFormModalProps> = ({
         vesselVoyage: `${b.vessel || ''} ${b.voyage || ''}`.trim(),
         etd: b.etd || '',
         eta: b.eta || '',
+        cyOpenDate: b.cyCutOpen || b.cyOpenDate || '',
+        cyCutDate: b.cyCutDate || '',
         shipmentMode: b.cargoVolumeSize || `${parsedCount} X ${parsedSize}`,
         freightTerm: (b.freightTerm || '').includes('COLLECT') ? 'COLLECT' : 'PREPAID',
         containerCount: parsedCount,
@@ -197,6 +201,8 @@ export const QuotationFormModal: React.FC<QuotationFormModalProps> = ({
         bookingNo: initialData.bookingNo || '',
         shipmentNo: initialData.shipmentNo || '',
         blNo: initialData.blNo || '',
+        cyOpenDate: initialData.cyOpenDate || '',
+        cyCutDate: initialData.cyCutDate || '',
       });
       setSellingItems(initialData.sellingItems || []);
       setTermsList(getQuotationTermsArray(initialData));
@@ -234,6 +240,8 @@ export const QuotationFormModal: React.FC<QuotationFormModalProps> = ({
         vesselVoyage: '',
         etd: '',
         eta: '',
+        cyOpenDate: '',
+        cyCutDate: '',
         shipmentMode: "1 X 40' HC",
         freightTerm: 'PREPAID',
         exchangeRate: 155,
@@ -407,6 +415,8 @@ export const QuotationFormModal: React.FC<QuotationFormModalProps> = ({
       vesselVoyage: formData.vesselVoyage || '',
       etd: formData.etd || '',
       eta: formData.eta || '',
+      cyOpenDate: formData.cyOpenDate || '',
+      cyCutDate: formData.cyCutDate || '',
       shipmentMode:
         formData.shipmentMode ||
         `${formData.containerCount || 1} X ${formData.containerSize || "40' HC"}`,
@@ -833,6 +843,66 @@ export const QuotationFormModal: React.FC<QuotationFormModalProps> = ({
                     }}
                     placeholder="1 X 40' HC"
                     className="w-full px-2.5 py-1.5 text-xs border border-slate-300 rounded-lg font-semibold"
+                  />
+                </div>
+              </div>
+
+              {/* Schedule Dates: CY OPEN, CY CUT, ETD, ETA */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-1">
+                <div>
+                  <label className="block font-bold text-emerald-800 uppercase mb-1">
+                    CY OPEN
+                  </label>
+                  <input
+                    type="date"
+                    value={formData.cyOpenDate || ''}
+                    onChange={(e) => {
+                      setIsDirty(true);
+                      setFormData((p) => ({ ...p, cyOpenDate: e.target.value }));
+                    }}
+                    className="w-full px-2.5 py-1.5 text-xs border border-slate-300 rounded-lg font-mono"
+                  />
+                </div>
+                <div>
+                  <label className="block font-bold text-amber-800 uppercase mb-1">
+                    CY CUT
+                  </label>
+                  <input
+                    type="date"
+                    value={formData.cyCutDate || ''}
+                    onChange={(e) => {
+                      setIsDirty(true);
+                      setFormData((p) => ({ ...p, cyCutDate: e.target.value }));
+                    }}
+                    className="w-full px-2.5 py-1.5 text-xs border border-slate-300 rounded-lg font-mono"
+                  />
+                </div>
+                <div>
+                  <label className="block font-bold text-sky-900 uppercase mb-1">
+                    ETD
+                  </label>
+                  <input
+                    type="date"
+                    value={formData.etd || ''}
+                    onChange={(e) => {
+                      setIsDirty(true);
+                      setFormData((p) => ({ ...p, etd: e.target.value }));
+                    }}
+                    className="w-full px-2.5 py-1.5 text-xs border border-slate-300 rounded-lg font-mono"
+                  />
+                </div>
+                <div>
+                  <label className="block font-bold text-indigo-900 uppercase mb-1">
+                    ETA
+                  </label>
+                  <input
+                    type="date"
+                    value={formData.eta || ''}
+                    onChange={(e) => {
+                      setIsDirty(true);
+                      setFormData((p) => ({ ...p, eta: e.target.value }));
+                    }}
+                    className="w-full px-2.5 py-1.5 text-xs border border-slate-300 rounded-lg font-mono"
                   />
                 </div>
               </div>

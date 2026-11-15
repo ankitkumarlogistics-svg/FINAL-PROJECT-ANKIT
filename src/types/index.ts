@@ -387,6 +387,8 @@ export interface Quotation {
   vesselVoyage: string;
   etd: string;
   eta: string;
+  cyOpenDate?: string;
+  cyCutDate?: string;
   shipmentMode: string;
   freightTerm: string;
   exchangeRate: number;

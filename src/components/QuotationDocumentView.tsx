@@ -117,19 +117,49 @@ export const QuotationDocumentView: React.FC<QuotationDocumentViewProps> = ({
                     {quotation.vesselVoyage || '—'}
                   </td>
                   <td className="p-1.5 font-bold bg-slate-100 border-r border-slate-300 text-slate-800">
-                    ETD / ETA
+                    FREIGHT TERM
                   </td>
-                  <td className="p-1.5 font-mono text-slate-800">
-                    {quotation.etd || '—'} / {quotation.eta || '—'}
+                  <td className="p-1.5 font-semibold text-slate-900">
+                    {quotation.freightTerm || 'PREPAID'}
+                  </td>
+                </tr>
+
+                <tr className="border-b border-slate-300">
+                  <td className="p-1.5 font-bold bg-slate-100 border-r border-slate-300 text-slate-800">
+                    CY OPEN
+                  </td>
+                  <td className="p-1.5 font-mono font-semibold text-slate-900 border-r border-slate-300">
+                    {quotation.cyOpenDate || '—'}
+                  </td>
+                  <td className="p-1.5 font-bold bg-slate-100 border-r border-slate-300 text-slate-800">
+                    CY CUT
+                  </td>
+                  <td className="p-1.5 font-mono font-semibold text-slate-900">
+                    {quotation.cyCutDate || '—'}
+                  </td>
+                </tr>
+
+                <tr className="border-b border-slate-300">
+                  <td className="p-1.5 font-bold bg-slate-100 border-r border-slate-300 text-slate-800">
+                    ETD
+                  </td>
+                  <td className="p-1.5 font-mono font-semibold text-slate-900 border-r border-slate-300">
+                    {quotation.etd || '—'}
+                  </td>
+                  <td className="p-1.5 font-bold bg-slate-100 border-r border-slate-300 text-slate-800">
+                    ETA
+                  </td>
+                  <td className="p-1.5 font-mono font-semibold text-slate-900">
+                    {quotation.eta || '—'}
                   </td>
                 </tr>
 
                 <tr>
                   <td className="p-1.5 font-bold bg-slate-100 border-r border-slate-300 text-slate-800">
-                    EQUIPMENT / TERM
+                    EQUIPMENT / MODE
                   </td>
                   <td className="p-1.5 font-semibold text-slate-900 border-r border-slate-300">
-                    {quotation.shipmentMode || `${quotation.containerCount || 1} X ${quotation.containerSize || "40' HC"}`} · {quotation.freightTerm}
+                    {quotation.shipmentMode || `${quotation.containerCount || 1} X ${quotation.containerSize || "40' HC"}`}
                   </td>
                   <td className="p-1.5 font-bold bg-slate-100 border-r border-slate-300 text-slate-800">
                     EST. EXCHANGE RATE

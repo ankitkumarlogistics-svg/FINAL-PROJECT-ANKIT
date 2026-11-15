@@ -144,6 +144,10 @@ export const QuotationManagement: React.FC<QuotationManagementProps> = ({
       bookingNo: cleanBk,
       shipmentNo: matchedBk?.shipmentNo || cleanShp,
       blNo: matchedBk?.blNo || assignBookingTarget.blNo || '',
+      cyOpenDate: assignBookingTarget.cyOpenDate || matchedBk?.cyCutOpen || matchedBk?.cyOpenDate || '',
+      cyCutDate: assignBookingTarget.cyCutDate || matchedBk?.cyCutDate || '',
+      etd: assignBookingTarget.etd || matchedBk?.etd || '',
+      eta: assignBookingTarget.eta || matchedBk?.eta || '',
       status:
         assignBookingTarget.status === 'DRAFT' || assignBookingTarget.status === 'SENT'
           ? 'ACCEPTED'
@@ -356,6 +360,12 @@ export const QuotationManagement: React.FC<QuotationManagementProps> = ({
                       {q.bookingNo ? `BK: ${q.bookingNo}` : 'Method 1: Reference Quote (No Booking)'} ·{' '}
                       {q.portFrom} → {q.portTo}
                     </div>
+                    <div className="grid grid-cols-2 gap-1.5 text-[10.5px] font-mono bg-slate-50 p-2 rounded border border-slate-200">
+                      <div><span className="font-bold text-slate-500">CY OPEN:</span> {q.cyOpenDate || '—'}</div>
+                      <div><span className="font-bold text-slate-500">CY CUT:</span> {q.cyCutDate || '—'}</div>
+                      <div><span className="font-bold text-slate-500">ETD:</span> {q.etd || '—'}</div>
+                      <div><span className="font-bold text-slate-500">ETA:</span> {q.eta || '—'}</div>
+                    </div>
                     <div className="flex items-center justify-between bg-slate-50 p-2 rounded-lg border border-slate-200 text-xs">
                       <span className="text-slate-500 font-semibold">Quoted Selling Price</span>
                       <span className="font-mono font-bold text-slate-900 tabular-nums">
@@ -423,6 +433,7 @@ export const QuotationManagement: React.FC<QuotationManagementProps> = ({
                     <th className="py-3 px-3 font-bold">Quotation No</th>
                     <th className="py-3 px-3 font-bold">Stage / Method</th>
                     <th className="py-3 px-3 font-bold">Customer &amp; Route</th>
+                    <th className="py-3 px-3 font-bold">CY Open / Cut · ETD / ETA</th>
                     <th className="py-3 px-3 font-bold">Booking / Refs</th>
                     <th className="py-3 px-3 font-bold text-right">Quoted Amount</th>
                     <th className="py-3 px-3 font-bold">Status</th>
@@ -462,6 +473,18 @@ export const QuotationManagement: React.FC<QuotationManagementProps> = ({
                           <div className="font-semibold text-slate-900">{q.customerName}</div>
                           <div className="text-[11px] text-slate-500">
                             {q.portFrom} → <span className="font-semibold text-slate-700">{q.portTo}</span> ({q.shipmentMode})
+                          </div>
+                        </td>
+                        <td className="py-3 px-3 font-mono text-[10.5px] text-slate-700 whitespace-nowrap">
+                          <div>
+                            <span className="font-bold text-emerald-800">CY OPEN:</span> {q.cyOpenDate || '—'}{' '}
+                            <span className="text-slate-300">|</span>{' '}
+                            <span className="font-bold text-amber-800">CY CUT:</span> {q.cyCutDate || '—'}
+                          </div>
+                          <div className="mt-0.5">
+                            <span className="font-bold text-sky-800">ETD:</span> {q.etd || '—'}{' '}
+                            <span className="text-slate-300">|</span>{' '}
+                            <span className="font-bold text-indigo-800">ETA:</span> {q.eta || '—'}
                           </div>
                         </td>
                         <td className="py-3 px-3 font-mono text-[11px] text-slate-700">
