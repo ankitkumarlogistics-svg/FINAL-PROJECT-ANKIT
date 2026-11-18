@@ -185,47 +185,56 @@ export const LoginPage: React.FC<LoginPageProps> = ({
             </button>
           </form>
 
-          {/* Quick Demo Credentials Switcher */}
-          <div className="pt-4 border-t border-slate-200">
-            <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400 text-center mb-2.5">
-              {t.quickDemoAccess}
-            </div>
-            <div className="grid grid-cols-2 gap-2 text-xs">
-              <button
-                type="button"
-                onClick={() => {
-                  const adminUser = users.find((u) => u.role === 'ADMIN') || users[0];
-                  if (adminUser) handleQuickFill(adminUser);
-                }}
-                className="p-2.5 text-left border border-sky-200 bg-sky-50/70 hover:bg-sky-100/80 rounded-lg transition-colors group"
-              >
-                <div className="font-bold text-sky-950 flex items-center gap-1">
-                  <ShieldCheck className="w-3.5 h-3.5 text-sky-700" />
-                  {t.demoAdminText}
+          {/* Quick Demo Credentials Switcher — shown only while default demo accounts are unchanged */}
+          {(() => {
+            const defaultAdmin = users.find(
+              (u) => u.userId.toLowerCase() === 'admin' && u.password === 'admin123'
+            );
+            const defaultStaff = users.find(
+              (u) => u.userId.toLowerCase() === 'staff1' && u.password === 'staff123'
+            );
+            if (!defaultAdmin && !defaultStaff) return null;
+            return (
+              <div className="pt-4 border-t border-slate-200">
+                <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400 text-center mb-2.5">
+                  {t.quickDemoAccess}
                 </div>
-                <div className="text-[10px] text-sky-800 font-mono mt-0.5">
-                  ID: admin / pass: admin123
-                </div>
-              </button>
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  {defaultAdmin && (
+                    <button
+                      type="button"
+                      onClick={() => handleQuickFill(defaultAdmin)}
+                      className="p-2.5 text-left border border-sky-200 bg-sky-50/70 hover:bg-sky-100/80 rounded-lg transition-colors group"
+                    >
+                      <div className="font-bold text-sky-950 flex items-center gap-1">
+                        <ShieldCheck className="w-3.5 h-3.5 text-sky-700" />
+                        {t.demoAdminText}
+                      </div>
+                      <div className="text-[10px] text-sky-800 font-mono mt-0.5">
+                        ID: admin / pass: admin123
+                      </div>
+                    </button>
+                  )}
 
-              <button
-                type="button"
-                onClick={() => {
-                  const staffUser = users.find((u) => u.role === 'STAFF') || users[1];
-                  if (staffUser) handleQuickFill(staffUser);
-                }}
-                className="p-2.5 text-left border border-slate-200 bg-slate-50 hover:bg-slate-100 rounded-lg transition-colors group"
-              >
-                <div className="font-bold text-slate-800 flex items-center gap-1">
-                  <User className="w-3.5 h-3.5 text-slate-600" />
-                  {t.demoStaffText}
+                  {defaultStaff && (
+                    <button
+                      type="button"
+                      onClick={() => handleQuickFill(defaultStaff)}
+                      className="p-2.5 text-left border border-slate-200 bg-slate-50 hover:bg-slate-100 rounded-lg transition-colors group"
+                    >
+                      <div className="font-bold text-slate-800 flex items-center gap-1">
+                        <User className="w-3.5 h-3.5 text-slate-600" />
+                        {t.demoStaffText}
+                      </div>
+                      <div className="text-[10px] text-slate-500 font-mono mt-0.5">
+                        ID: staff1 / pass: staff123
+                      </div>
+                    </button>
+                  )}
                 </div>
-                <div className="text-[10px] text-slate-500 font-mono mt-0.5">
-                  ID: staff1 / pass: staff123
-                </div>
-              </button>
-            </div>
-          </div>
+              </div>
+            );
+          })()}
         </div>
 
         {/* Footer info */}

@@ -288,6 +288,37 @@ const SHIPPING_LINE_PAYMENTS_COLLECTION = 'shippingLinePayments';
 let hasSeeded = false;
 
 /**
+ * Recursively strips `undefined` properties (and invalid NaN/Infinity numbers)
+ * so Cloud Firestore `setDoc` never fails with "Unsupported field value: undefined".
+ */
+function sanitizeForFirestore<T>(value: T): T {
+  if (value === null || value === undefined) {
+    return value;
+  }
+  if (typeof value === 'number') {
+    return (Number.isFinite(value) ? value : 0) as unknown as T;
+  }
+  if (Array.isArray(value)) {
+    return value
+      .filter((item) => item !== undefined)
+      .map((item) => sanitizeForFirestore(item)) as unknown as T;
+  }
+  if (typeof value === 'object') {
+    if (value instanceof Date) {
+      return value;
+    }
+    const clean: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+      if (v !== undefined) {
+        clean[k] = sanitizeForFirestore(v);
+      }
+    }
+    return clean as T;
+  }
+  return value;
+}
+
+/**
  * Seed initial data to cloud Firestore if empty
  */
 export async function initializeAndSeedCloudData(): Promise<void> {
@@ -298,7 +329,7 @@ export async function initializeAndSeedCloudData(): Promise<void> {
       const localBookings = getBookings();
       const seedBookings = localBookings.length > 0 ? localBookings : INITIAL_BOOKINGS;
       for (const b of seedBookings) {
-        await setDoc(doc(db, BOOKINGS_COLLECTION, b.id), b, { merge: true });
+        await setDoc(doc(db, BOOKINGS_COLLECTION, b.id), sanitizeForFirestore(b), { merge: true });
       }
     }
 
@@ -308,7 +339,7 @@ export async function initializeAndSeedCloudData(): Promise<void> {
       const localInvoices = getInvoices();
       const seedInvoices = localInvoices.length > 0 ? localInvoices : INITIAL_INVOICES;
       for (const inv of seedInvoices) {
-        await setDoc(doc(db, INVOICES_COLLECTION, inv.id), inv, { merge: true });
+        await setDoc(doc(db, INVOICES_COLLECTION, inv.id), sanitizeForFirestore(inv), { merge: true });
       }
     }
 
@@ -317,7 +348,7 @@ export async function initializeAndSeedCloudData(): Promise<void> {
     if (settingsSnap.empty) {
       const localProfile = getCompanyProfile();
       const profileToSave = localProfile || DEFAULT_COMPANY_PROFILE;
-      await setDoc(doc(db, SETTINGS_COLLECTION, COMPANY_DOC_ID), profileToSave, { merge: true });
+      await setDoc(doc(db, SETTINGS_COLLECTION, COMPANY_DOC_ID), sanitizeForFirestore(profileToSave), { merge: true });
     }
 
     // 4. Check users
@@ -326,7 +357,7 @@ export async function initializeAndSeedCloudData(): Promise<void> {
       const localUsers = getUsers();
       const seedUsers = localUsers.length > 0 ? localUsers : INITIAL_USERS;
       for (const u of seedUsers) {
-        await setDoc(doc(db, USERS_COLLECTION, u.id), u, { merge: true });
+        await setDoc(doc(db, USERS_COLLECTION, u.id), sanitizeForFirestore(u), { merge: true });
       }
     }
 
@@ -336,7 +367,7 @@ export async function initializeAndSeedCloudData(): Promise<void> {
       const localCust = getCustomers();
       const seedCust = localCust.length > 0 ? localCust : INITIAL_CUSTOMERS;
       for (const c of seedCust) {
-        await setDoc(doc(db, CUSTOMERS_COLLECTION, c.id), c, { merge: true });
+        await setDoc(doc(db, CUSTOMERS_COLLECTION, c.id), sanitizeForFirestore(c), { merge: true });
       }
     }
 
@@ -346,7 +377,7 @@ export async function initializeAndSeedCloudData(): Promise<void> {
       const localShip = getShippers();
       const seedShip = localShip.length > 0 ? localShip : INITIAL_SHIPPERS;
       for (const s of seedShip) {
-        await setDoc(doc(db, SHIPPERS_COLLECTION, s.id), s, { merge: true });
+        await setDoc(doc(db, SHIPPERS_COLLECTION, s.id), sanitizeForFirestore(s), { merge: true });
       }
     }
 
@@ -356,7 +387,7 @@ export async function initializeAndSeedCloudData(): Promise<void> {
       const localCon = getConsignees();
       const seedCon = localCon.length > 0 ? localCon : INITIAL_CONSIGNEES;
       for (const c of seedCon) {
-        await setDoc(doc(db, CONSIGNEES_COLLECTION, c.id), c, { merge: true });
+        await setDoc(doc(db, CONSIGNEES_COLLECTION, c.id), sanitizeForFirestore(c), { merge: true });
       }
     }
 
@@ -366,7 +397,7 @@ export async function initializeAndSeedCloudData(): Promise<void> {
       const localNot = getNotifyParties();
       const seedNot = localNot.length > 0 ? localNot : INITIAL_NOTIFY_PARTIES;
       for (const n of seedNot) {
-        await setDoc(doc(db, NOTIFY_COLLECTION, n.id), n, { merge: true });
+        await setDoc(doc(db, NOTIFY_COLLECTION, n.id), sanitizeForFirestore(n), { merge: true });
       }
     }
 
@@ -376,7 +407,7 @@ export async function initializeAndSeedCloudData(): Promise<void> {
       const localStk = getStocks();
       const seedStk = localStk.length > 0 ? localStk : INITIAL_STOCKS;
       for (const s of seedStk) {
-        await setDoc(doc(db, STOCKS_COLLECTION, s.id), s, { merge: true });
+        await setDoc(doc(db, STOCKS_COLLECTION, s.id), sanitizeForFirestore(s), { merge: true });
       }
     }
 
@@ -386,7 +417,7 @@ export async function initializeAndSeedCloudData(): Promise<void> {
       const localTs = getTruckingSheets();
       const seedTs = localTs.length > 0 ? localTs : INITIAL_TRUCKING_SHEETS;
       for (const t of seedTs) {
-        await setDoc(doc(db, TRUCKING_SHEETS_COLLECTION, t.id), t, { merge: true });
+        await setDoc(doc(db, TRUCKING_SHEETS_COLLECTION, t.id), sanitizeForFirestore(t), { merge: true });
       }
     }
 
@@ -396,7 +427,7 @@ export async function initializeAndSeedCloudData(): Promise<void> {
       const localTc = getTruckingCompanies();
       const seedTc = localTc.length > 0 ? localTc : INITIAL_TRUCKING_COMPANIES;
       for (const tc of seedTc) {
-        await setDoc(doc(db, TRUCKING_COMPANIES_COLLECTION, tc.id), tc, { merge: true });
+        await setDoc(doc(db, TRUCKING_COMPANIES_COLLECTION, tc.id), sanitizeForFirestore(tc), { merge: true });
       }
     }
 
@@ -405,7 +436,7 @@ export async function initializeAndSeedCloudData(): Promise<void> {
     if (masterSnap.empty) {
       const localM = getMasters();
       const seedM = localM || INITIAL_MASTERS;
-      await setDoc(doc(db, MASTERS_COLLECTION, MASTER_DOC_ID), seedM, { merge: true });
+      await setDoc(doc(db, MASTERS_COLLECTION, MASTER_DOC_ID), sanitizeForFirestore(seedM), { merge: true });
     }
 
     // 13. KYC Records (Dedicated Compliance & Logistics Party Verification)
@@ -414,7 +445,7 @@ export async function initializeAndSeedCloudData(): Promise<void> {
       const localKyc = getKycRecords();
       const seedKyc = localKyc.length > 0 ? localKyc : INITIAL_KYC_RECORDS;
       for (const k of seedKyc) {
-        await setDoc(doc(db, KYC_COLLECTION, k.id), k, { merge: true });
+        await setDoc(doc(db, KYC_COLLECTION, k.id), sanitizeForFirestore(k), { merge: true });
       }
     }
 
@@ -424,7 +455,7 @@ export async function initializeAndSeedCloudData(): Promise<void> {
       const localQuo = getQuotations();
       const seedQuo = localQuo.length > 0 ? localQuo : INITIAL_QUOTATIONS;
       for (const q of seedQuo) {
-        await setDoc(doc(db, QUOTATIONS_COLLECTION, q.id), q, { merge: true });
+        await setDoc(doc(db, QUOTATIONS_COLLECTION, q.id), sanitizeForFirestore(q), { merge: true });
       }
     }
 
@@ -434,7 +465,7 @@ export async function initializeAndSeedCloudData(): Promise<void> {
       const localCst = getCostings();
       const seedCst = localCst.length > 0 ? localCst : INITIAL_COSTINGS;
       for (const c of seedCst) {
-        await setDoc(doc(db, COSTINGS_COLLECTION, c.id), c, { merge: true });
+        await setDoc(doc(db, COSTINGS_COLLECTION, c.id), sanitizeForFirestore(c), { merge: true });
       }
     }
 
@@ -444,7 +475,7 @@ export async function initializeAndSeedCloudData(): Promise<void> {
       const localSlp = getShippingLinePayments();
       const seedSlp = localSlp.length > 0 ? localSlp : INITIAL_SHIPPING_LINE_PAYMENTS;
       for (const p of seedSlp) {
-        await setDoc(doc(db, SHIPPING_LINE_PAYMENTS_COLLECTION, p.id), p, { merge: true });
+        await setDoc(doc(db, SHIPPING_LINE_PAYMENTS_COLLECTION, p.id), sanitizeForFirestore(p), { merge: true });
       }
     }
 
@@ -488,7 +519,7 @@ export function subscribeToCloudBookings(
 export async function saveBookingToCloud(booking: BookingConfirmation): Promise<void> {
   const path = `${BOOKINGS_COLLECTION}/${booking.id}`;
   try {
-    await setDoc(doc(db, BOOKINGS_COLLECTION, booking.id), booking, { merge: true });
+    await setDoc(doc(db, BOOKINGS_COLLECTION, booking.id), sanitizeForFirestore(booking), { merge: true });
     notifyCloudStatus({ isConnected: true, lastSyncTime: new Date() });
   } catch (error) {
     handleFirestoreError(error, OperationType.WRITE, path);
@@ -534,7 +565,7 @@ export function subscribeToCloudInvoices(
 export async function saveInvoiceToCloud(invoice: FreightInvoice): Promise<void> {
   const path = `${INVOICES_COLLECTION}/${invoice.id}`;
   try {
-    await setDoc(doc(db, INVOICES_COLLECTION, invoice.id), invoice, { merge: true });
+    await setDoc(doc(db, INVOICES_COLLECTION, invoice.id), sanitizeForFirestore(invoice), { merge: true });
     notifyCloudStatus({ isConnected: true, lastSyncTime: new Date() });
   } catch (error) {
     handleFirestoreError(error, OperationType.WRITE, path);
@@ -578,7 +609,7 @@ export function subscribeToCloudCustomers(onData: (customers: Customer[]) => voi
 export async function saveCustomerToCloud(customer: Customer): Promise<void> {
   const path = `${CUSTOMERS_COLLECTION}/${customer.id}`;
   try {
-    await setDoc(doc(db, CUSTOMERS_COLLECTION, customer.id), customer, { merge: true });
+    await setDoc(doc(db, CUSTOMERS_COLLECTION, customer.id), sanitizeForFirestore(customer), { merge: true });
     notifyCloudStatus({ isConnected: true, lastSyncTime: new Date() });
   } catch (error) {
     handleFirestoreError(error, OperationType.WRITE, path);
@@ -618,7 +649,7 @@ export function subscribeToCloudShippers(onData: (shippers: Shipper[]) => void):
 
 export async function saveShipperToCloud(shipper: Shipper): Promise<void> {
   try {
-    await setDoc(doc(db, SHIPPERS_COLLECTION, shipper.id), shipper, { merge: true });
+    await setDoc(doc(db, SHIPPERS_COLLECTION, shipper.id), sanitizeForFirestore(shipper), { merge: true });
     notifyCloudStatus({ isConnected: true, lastSyncTime: new Date() });
   } catch (error) {
     handleFirestoreError(error, OperationType.WRITE, `${SHIPPERS_COLLECTION}/${shipper.id}`);
@@ -656,7 +687,7 @@ export function subscribeToCloudConsignees(onData: (consignees: Consignee[]) => 
 
 export async function saveConsigneeToCloud(consignee: Consignee): Promise<void> {
   try {
-    await setDoc(doc(db, CONSIGNEES_COLLECTION, consignee.id), consignee, { merge: true });
+    await setDoc(doc(db, CONSIGNEES_COLLECTION, consignee.id), sanitizeForFirestore(consignee), { merge: true });
     notifyCloudStatus({ isConnected: true, lastSyncTime: new Date() });
   } catch (error) {
     handleFirestoreError(error, OperationType.WRITE, `${CONSIGNEES_COLLECTION}/${consignee.id}`);
@@ -694,7 +725,7 @@ export function subscribeToCloudNotifyParties(onData: (parties: NotifyParty[]) =
 
 export async function saveNotifyPartyToCloud(party: NotifyParty): Promise<void> {
   try {
-    await setDoc(doc(db, NOTIFY_COLLECTION, party.id), party, { merge: true });
+    await setDoc(doc(db, NOTIFY_COLLECTION, party.id), sanitizeForFirestore(party), { merge: true });
     notifyCloudStatus({ isConnected: true, lastSyncTime: new Date() });
   } catch (error) {
     handleFirestoreError(error, OperationType.WRITE, `${NOTIFY_COLLECTION}/${party.id}`);
@@ -735,7 +766,7 @@ export function subscribeToCloudStocks(onData: (stocks: StockItem[]) => void): U
 export async function saveStockToCloud(stock: StockItem): Promise<void> {
   const path = `${STOCKS_COLLECTION}/${stock.id}`;
   try {
-    await setDoc(doc(db, STOCKS_COLLECTION, stock.id), stock, { merge: true });
+    await setDoc(doc(db, STOCKS_COLLECTION, stock.id), sanitizeForFirestore(stock), { merge: true });
     notifyCloudStatus({ isConnected: true, lastSyncTime: new Date() });
   } catch (error) {
     handleFirestoreError(error, OperationType.WRITE, path);
@@ -779,7 +810,7 @@ export function subscribeToCloudTruckingSheets(
 export async function saveTruckingSheetToCloud(sheet: TruckingSheet): Promise<void> {
   const path = `${TRUCKING_SHEETS_COLLECTION}/${sheet.id}`;
   try {
-    await setDoc(doc(db, TRUCKING_SHEETS_COLLECTION, sheet.id), sheet, { merge: true });
+    await setDoc(doc(db, TRUCKING_SHEETS_COLLECTION, sheet.id), sanitizeForFirestore(sheet), { merge: true });
     notifyCloudStatus({ isConnected: true, lastSyncTime: new Date() });
   } catch (error) {
     handleFirestoreError(error, OperationType.WRITE, path);
@@ -823,7 +854,7 @@ export function subscribeToCloudTruckingCompanies(
 export async function saveTruckingCompanyToCloud(company: TruckingCompany): Promise<void> {
   const path = `${TRUCKING_COMPANIES_COLLECTION}/${company.id}`;
   try {
-    await setDoc(doc(db, TRUCKING_COMPANIES_COLLECTION, company.id), company, { merge: true });
+    await setDoc(doc(db, TRUCKING_COMPANIES_COLLECTION, company.id), sanitizeForFirestore(company), { merge: true });
     notifyCloudStatus({ isConnected: true, lastSyncTime: new Date() });
   } catch (error) {
     handleFirestoreError(error, OperationType.WRITE, path);
@@ -862,7 +893,7 @@ export function subscribeToCloudMasters(onData: (masters: MasterData) => void): 
 export async function saveMastersToCloud(masters: MasterData): Promise<void> {
   const path = `${MASTERS_COLLECTION}/${MASTER_DOC_ID}`;
   try {
-    await setDoc(doc(db, MASTERS_COLLECTION, MASTER_DOC_ID), masters, { merge: true });
+    await setDoc(doc(db, MASTERS_COLLECTION, MASTER_DOC_ID), sanitizeForFirestore(masters), { merge: true });
     saveMasters(masters);
     notifyCloudStatus({ isConnected: true, lastSyncTime: new Date() });
   } catch (error) {
@@ -894,7 +925,7 @@ export function subscribeToCloudCompanyProfile(
 export async function saveCompanyProfileToCloud(profile: CompanyProfile): Promise<void> {
   const path = `${SETTINGS_COLLECTION}/${COMPANY_DOC_ID}`;
   try {
-    await setDoc(doc(db, SETTINGS_COLLECTION, COMPANY_DOC_ID), profile, { merge: true });
+    await setDoc(doc(db, SETTINGS_COLLECTION, COMPANY_DOC_ID), sanitizeForFirestore(profile), { merge: true });
     notifyCloudStatus({ isConnected: true, lastSyncTime: new Date() });
   } catch (error) {
     handleFirestoreError(error, OperationType.WRITE, path);
@@ -927,7 +958,7 @@ export function subscribeToCloudUsers(onData: (users: AppUser[]) => void): Unsub
 export async function saveUserToCloud(user: AppUser): Promise<void> {
   const path = `${USERS_COLLECTION}/${user.id}`;
   try {
-    await setDoc(doc(db, USERS_COLLECTION, user.id), user, { merge: true });
+    await setDoc(doc(db, USERS_COLLECTION, user.id), sanitizeForFirestore(user), { merge: true });
     notifyCloudStatus({ isConnected: true, lastSyncTime: new Date() });
   } catch (error) {
     handleFirestoreError(error, OperationType.WRITE, path);
@@ -971,7 +1002,7 @@ export function subscribeToCloudKycRecords(onData: (records: KycRecord[]) => voi
 export async function saveKycRecordToCloud(record: KycRecord): Promise<void> {
   const path = `${KYC_COLLECTION}/${record.id}`;
   try {
-    await setDoc(doc(db, KYC_COLLECTION, record.id), record, { merge: true });
+    await setDoc(doc(db, KYC_COLLECTION, record.id), sanitizeForFirestore(record), { merge: true });
     notifyCloudStatus({ isConnected: true, lastSyncTime: new Date() });
   } catch (error) {
     handleFirestoreError(error, OperationType.WRITE, path);
@@ -1013,7 +1044,7 @@ export function subscribeToCloudQuotations(onData: (quotations: Quotation[]) => 
 export async function saveQuotationToCloud(quotation: Quotation): Promise<void> {
   const path = `${QUOTATIONS_COLLECTION}/${quotation.id}`;
   try {
-    await setDoc(doc(db, QUOTATIONS_COLLECTION, quotation.id), quotation, { merge: true });
+    await setDoc(doc(db, QUOTATIONS_COLLECTION, quotation.id), sanitizeForFirestore(quotation), { merge: true });
     notifyCloudStatus({ isConnected: true, lastSyncTime: new Date() });
   } catch (error) {
     handleFirestoreError(error, OperationType.WRITE, path);
@@ -1061,7 +1092,7 @@ export async function saveShippingLinePaymentToCloud(
 ): Promise<void> {
   const path = `${SHIPPING_LINE_PAYMENTS_COLLECTION}/${payment.id}`;
   try {
-    await setDoc(doc(db, SHIPPING_LINE_PAYMENTS_COLLECTION, payment.id), payment, {
+    await setDoc(doc(db, SHIPPING_LINE_PAYMENTS_COLLECTION, payment.id), sanitizeForFirestore(payment), {
       merge: true,
     });
     notifyCloudStatus({ isConnected: true, lastSyncTime: new Date() });
@@ -1105,7 +1136,7 @@ export function subscribeToCloudCostings(onData: (costings: ShipmentCosting[]) =
 export async function saveCostingToCloud(costing: ShipmentCosting): Promise<void> {
   const path = `${COSTINGS_COLLECTION}/${costing.id}`;
   try {
-    await setDoc(doc(db, COSTINGS_COLLECTION, costing.id), costing, { merge: true });
+    await setDoc(doc(db, COSTINGS_COLLECTION, costing.id), sanitizeForFirestore(costing), { merge: true });
     notifyCloudStatus({ isConnected: true, lastSyncTime: new Date() });
   } catch (error) {
     handleFirestoreError(error, OperationType.WRITE, path);

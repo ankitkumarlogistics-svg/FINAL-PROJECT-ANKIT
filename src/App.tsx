@@ -243,6 +243,7 @@ export default function App() {
   );
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
   const [downloadSuccessMessage, setDownloadSuccessMessage] = useState<string | null>(null);
+  const [cloudSaveError, setCloudSaveError] = useState<string | null>(null);
 
   const [cloudStatus, setCloudStatus] = useState<CloudSyncStatus>(getCloudStatus);
 
@@ -315,17 +316,25 @@ export default function App() {
 
   // --- User Management Handlers (Admin) ---
   const handleAddUser = (newUser: AppUser) => {
+    setCloudSaveError(null);
     const updated = [newUser, ...users];
     setUsers(updated);
     saveUsers(updated);
-    saveUserToCloud(newUser).catch(console.error);
+    saveUserToCloud(newUser).catch((err) => {
+      console.error(err);
+      setCloudSaveError(`Failed to save user "${newUser.userId}" to database.`);
+    });
   };
 
   const handleUpdateUser = (updatedUser: AppUser) => {
+    setCloudSaveError(null);
     const updated = users.map((u) => (u.id === updatedUser.id ? updatedUser : u));
     setUsers(updated);
     saveUsers(updated);
-    saveUserToCloud(updatedUser).catch(console.error);
+    saveUserToCloud(updatedUser).catch((err) => {
+      console.error(err);
+      setCloudSaveError(`Failed to update user "${updatedUser.userId}" in database.`);
+    });
     if (session.currentUser?.id === updatedUser.id) {
       const updatedSession = { ...session, currentUser: updatedUser };
       setSession(updatedSession);
@@ -845,9 +854,13 @@ export default function App() {
 
   // --- Invoice CRUD Handlers + Cascade Linking ---
   const handleSaveInvoice = (invoice: FreightInvoice) => {
+    setCloudSaveError(null);
     const fin = computeCustomerInvoiceFinance(invoice);
     const normalized: FreightInvoice = {
       ...invoice,
+      invoiceNo:
+        (invoice.invoiceNo || '').trim() ||
+        `YTL-FI-${Math.floor(100000 + Math.random() * 900000)}`,
       amountReceivedJpy: fin.receivedJpy,
       outstandingBalanceJpy: fin.outstandingJpy,
       status: fin.invoiceStatus,
@@ -859,7 +872,17 @@ export default function App() {
       : [normalized, ...invoices];
     setInvoices(updated);
     saveInvoices(updated);
-    saveInvoiceToCloud(normalized).catch(console.error);
+    saveInvoiceToCloud(normalized)
+      .then(() => {
+        setDownloadSuccessMessage(`Invoice #${normalized.invoiceNo} saved to Cloud Database!`);
+        setTimeout(() => setDownloadSuccessMessage(null), 3000);
+      })
+      .catch((err) => {
+        console.error(err);
+        setCloudSaveError(
+          `Database save failed for Invoice #${normalized.invoiceNo}. Check network connection and try again.`
+        );
+      });
 
     // Mark linked quotation as CONVERTED & sync BL/Shipment numbers across connected modules
     const now = new Date().toISOString();
@@ -1195,11 +1218,29 @@ export default function App() {
         onLogout={handleLogout}
       />
 
-      {/* Download Toast Notification */}
+      {/* Download / Save Toast Notification */}
       {downloadSuccessMessage && (
         <div className="fixed top-20 right-6 z-50 bg-emerald-600 text-white px-4 py-2.5 rounded-lg shadow-xl flex items-center gap-2 text-xs font-bold animate-bounce">
           <Check className="w-4 h-4 text-white" />
           <span>{downloadSuccessMessage}</span>
+        </div>
+      )}
+
+      {/* Cloud Database Save Error Alert */}
+      {cloudSaveError && (
+        <div className="fixed bottom-6 right-6 z-50 max-w-md bg-rose-700 text-white px-4 py-3 rounded-xl shadow-2xl flex items-center justify-between gap-3 text-xs font-semibold border border-rose-500">
+          <div className="flex items-center gap-2">
+            <AlertTriangle className="w-4 h-4 text-amber-300 shrink-0" />
+            <span>{cloudSaveError}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setCloudSaveError(null)}
+            className="text-rose-200 hover:text-white font-bold px-1.5"
+            aria-label="Dismiss error"
+          >
+            ✕
+          </button>
         </div>
       )}
 

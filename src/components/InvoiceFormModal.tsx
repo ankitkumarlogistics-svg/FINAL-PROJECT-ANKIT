@@ -22,6 +22,7 @@ import {
   TrendingDown,
   Anchor,
   Lock,
+  Search,
 } from 'lucide-react';
 
 interface InvoiceFormModalProps {
@@ -109,10 +110,13 @@ export const InvoiceFormModal: React.FC<InvoiceFormModalProps> = ({
   const [items, setItems] = useState<InvoiceItem[]>([]);
   const [actualCostItems, setActualCostItems] = useState<QuotationCostItem[]>([]);
   const [directActualCostJpy, setDirectActualCostJpy] = useState<number>(0);
+  const [bookingSearchQuery, setBookingSearchQuery] = useState('');
+  const [isBookingDropdownOpen, setIsBookingDropdownOpen] = useState(false);
   const [isDirty, setIsDirty] = useState(false);
   const [showUnsavedPrompt, setShowUnsavedPrompt] = useState(false);
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
   const costingSectionRef = useRef<HTMLDivElement | null>(null);
+  const bookingSearchRef = useRef<HTMLDivElement | null>(null);
 
   // Calculate row total JPY
   const calculateLineTotal = (
@@ -178,26 +182,45 @@ export const InvoiceFormModal: React.FC<InvoiceFormModalProps> = ({
   }, [isDirty, forceClose]);
 
   useEffect(() => {
+    if (!isBookingDropdownOpen) return;
+    const handleOutsideClick = (e: MouseEvent) => {
+      if (bookingSearchRef.current && !bookingSearchRef.current.contains(e.target as Node)) {
+        setIsBookingDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleOutsideClick);
+    return () => document.removeEventListener('mousedown', handleOutsideClick);
+  }, [isBookingDropdownOpen]);
+
+  useEffect(() => {
     if (!isOpen) return;
     const handleKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape' && !showUnsavedPrompt) {
         e.preventDefault();
         e.stopPropagation();
-        requestClose();
+        if (isBookingDropdownOpen) {
+          setIsBookingDropdownOpen(false);
+        } else {
+          requestClose();
+        }
       }
     };
     window.addEventListener('keydown', handleKey);
     return () => window.removeEventListener('keydown', handleKey);
-  }, [isOpen, showUnsavedPrompt, requestClose]);
+  }, [isOpen, showUnsavedPrompt, isBookingDropdownOpen, requestClose]);
 
   useEffect(() => {
     if (!isOpen) {
       setIsDirty(false);
       setShowUnsavedPrompt(false);
+      setBookingSearchQuery('');
+      setIsBookingDropdownOpen(false);
       return;
     }
     setIsDirty(false);
     setShowUnsavedPrompt(false);
+    setBookingSearchQuery('');
+    setIsBookingDropdownOpen(false);
     if (initialData) {
       setFormData(initialData);
       setItems(initialData.items || []);
@@ -307,6 +330,15 @@ export const InvoiceFormModal: React.FC<InvoiceFormModalProps> = ({
   const liveNetProfitLossJpy = liveSellingJpy - resolvedActualCostJpy;
   const liveProfitMarginPct =
     liveSellingJpy > 0 ? Math.round((liveNetProfitLossJpy / liveSellingJpy) * 1000) / 10 : 0;
+
+  // Filter From Booking STRICTLY by Booking Number only
+  const bookingFilteredResults = useMemo(() => {
+    const q = bookingSearchQuery.trim().toLowerCase();
+    if (!q) return availableBookings;
+    return availableBookings.filter((b) =>
+      (b.bookingNumber || '').toLowerCase().includes(q)
+    );
+  }, [availableBookings, bookingSearchQuery]);
 
   if (!isOpen) return null;
 
@@ -645,9 +677,38 @@ export const InvoiceFormModal: React.FC<InvoiceFormModalProps> = ({
 
     const received = Math.max(0, Math.min(grandTotal, Number(formData.amountReceivedJpy) || 0));
     const hasCostInfo = finalCostItems.length > 0 || finalActualCostJpy > 0;
+    const fallbackInvoiceNo = `YTL-FI-${Math.floor(100000 + Math.random() * 900000)}`;
+    const resolvedInvoiceNo = (formData.invoiceNo || '').trim() || fallbackInvoiceNo;
+    const resolvedLinkedShippingPaymentId =
+      formData.linkedShippingPaymentId || matchedBookingShippingPayments[0]?.id || '';
+    const resolvedCostUpdatedAt = hasCostInfo
+      ? now
+      : initialData?.actualCostUpdatedAt || '';
+
     const draftInvoice: FreightInvoice = {
       ...(formData as FreightInvoice),
       id: initialData?.id || `inv-${Date.now()}`,
+      invoiceNo: resolvedInvoiceNo,
+      date: formData.date || now.slice(0, 10),
+      paymentDueDate: formData.paymentDueDate || '',
+      customerName: (formData.customerName || '').trim(),
+      customerAddress: (formData.customerAddress || '').trim(),
+      portFrom: (formData.portFrom || '').trim(),
+      portTo: (formData.portTo || '').trim(),
+      shippingCompany: (formData.shippingCompany || '').trim(),
+      vesselVoyage: (formData.vesselVoyage || '').trim(),
+      etd: (formData.etd || '').trim(),
+      eta: (formData.eta || '').trim(),
+      blNo: (formData.blNo || '').trim(),
+      bookingNo: (formData.bookingNo || '').trim(),
+      shipmentNo: (formData.shipmentNo || '').trim(),
+      shipmentMode: (formData.shipmentMode || '').trim(),
+      freightTerm: formData.freightTerm || 'PREPAID',
+      exchangeRate: Number(formData.exchangeRate) || 155,
+      containerCount: Number(formData.containerCount) || 1,
+      containerSize: formData.containerSize || "40' HC",
+      containerNumbers: formData.containerNumbers || '',
+      remarks: formData.remarks || '',
       items: finalItems,
       subTotalJpy: subTotal,
       discountJpy: discount,
@@ -658,9 +719,10 @@ export const InvoiceFormModal: React.FC<InvoiceFormModalProps> = ({
       actualShippingCostJpy: finalActualCostJpy,
       netProfitLossJpy: finalNetPL,
       profitMarginPct: finalMarginPct,
-      linkedShippingPaymentId:
-        formData.linkedShippingPaymentId || matchedBookingShippingPayments[0]?.id,
-      actualCostUpdatedAt: hasCostInfo ? now : initialData?.actualCostUpdatedAt,
+      ...(resolvedLinkedShippingPaymentId
+        ? { linkedShippingPaymentId: resolvedLinkedShippingPaymentId }
+        : {}),
+      ...(resolvedCostUpdatedAt ? { actualCostUpdatedAt: resolvedCostUpdatedAt } : {}),
       createdAt: initialData?.createdAt || now,
       updatedAt: now,
     };
@@ -705,60 +767,126 @@ export const InvoiceFormModal: React.FC<InvoiceFormModalProps> = ({
             </button>
           </div>
 
-        {/* Autofill from Booking or Agreed Quotation */}
+        {/* Autofill from Booking or Agreed Quotation (Optional — leave blank for manual invoice) */}
         {(availableBookings.length > 0 || availableQuotations.length > 0) && !initialData && (
-          <div className="px-4 sm:px-6 py-2.5 bg-sky-50 border-b border-sky-100 grid grid-cols-1 md:grid-cols-2 gap-2.5 text-xs shrink-0">
-            {availableQuotations.length > 0 && (
-              <div className="flex items-center justify-between gap-2">
-                <span className="font-semibold text-indigo-900 flex items-center gap-1.5 shrink-0">
-                  <Calculator className="w-4 h-4 text-indigo-600" />
-                  From Agreed Quote:
-                </span>
-                <select
-                  onChange={(e) => {
-                    const q = availableQuotations.find((x) => x.id === e.target.value);
-                    if (q) applyQuotationData(q);
-                  }}
-                  className="flex-1 text-xs bg-white border border-indigo-300 rounded px-2.5 py-1 text-slate-800 font-medium"
-                  defaultValue=""
-                >
-                  <option value="" disabled>
-                    Select quotation selling price...
-                  </option>
-                  {availableQuotations.map((q) => (
-                    <option key={q.id} value={q.id}>
-                      {q.quotationNo} · {q.customerName} (¥{q.totalSellingJpy.toLocaleString()})
+          <div className="px-4 sm:px-6 py-2.5 bg-sky-50 border-b border-sky-100 space-y-1.5 text-xs shrink-0">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
+              {availableQuotations.length > 0 && (
+                <div className="flex items-center justify-between gap-2">
+                  <span className="font-semibold text-indigo-900 flex items-center gap-1.5 shrink-0">
+                    <Calculator className="w-4 h-4 text-indigo-600" />
+                    From Agreed Quote:
+                  </span>
+                  <select
+                    onChange={(e) => {
+                      const q = availableQuotations.find((x) => x.id === e.target.value);
+                      if (q) {
+                        applyQuotationData(q);
+                        setBookingSearchQuery(q.bookingNo || '');
+                        setIsDirty(true);
+                      }
+                    }}
+                    className="flex-1 text-xs bg-white border border-indigo-300 rounded px-2.5 py-1.5 text-slate-800 font-medium"
+                    defaultValue=""
+                  >
+                    <option value="" disabled>
+                      Select quotation selling price...
                     </option>
-                  ))}
-                </select>
-              </div>
-            )}
+                    {availableQuotations.map((q) => (
+                      <option key={q.id} value={q.id}>
+                        {q.quotationNo} · {q.customerName} (¥{q.totalSellingJpy.toLocaleString()})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
 
-            {availableBookings.length > 0 && (
-              <div className="flex items-center justify-between gap-2">
-                <span className="font-semibold text-sky-900 flex items-center gap-1.5 shrink-0">
-                  <Link2 className="w-4 h-4 text-sky-600" />
-                  From Booking:
-                </span>
-                <select
-                  onChange={(e) => {
-                    const b = availableBookings.find((x) => x.id === e.target.value);
-                    if (b) applyBookingData(b);
-                  }}
-                  className="flex-1 text-xs bg-white border border-sky-300 rounded px-2.5 py-1 text-slate-800 font-medium"
-                  defaultValue=""
-                >
-                  <option value="" disabled>
-                    Select a booking to import...
-                  </option>
-                  {availableBookings.map((b) => (
-                    <option key={b.id} value={b.id}>
-                      {b.bookingNumber} · {b.customerCompany} ({b.pod})
-                    </option>
-                  ))}
-                </select>
-              </div>
-            )}
+              {availableBookings.length > 0 && (
+                <div ref={bookingSearchRef} className="relative flex items-center justify-between gap-2">
+                  <span className="font-semibold text-sky-900 flex items-center gap-1.5 shrink-0">
+                    <Link2 className="w-4 h-4 text-sky-600" />
+                    From Booking:
+                  </span>
+                  <div className="relative flex-1">
+                    <Search className="w-3.5 h-3.5 text-sky-600 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                    <input
+                      type="text"
+                      value={bookingSearchQuery}
+                      onFocus={() => setIsBookingDropdownOpen(true)}
+                      onChange={(e) => {
+                        setBookingSearchQuery(e.target.value.toUpperCase());
+                        setIsBookingDropdownOpen(true);
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          if (bookingFilteredResults.length > 0) {
+                            const exact =
+                              bookingFilteredResults.find(
+                                (b) =>
+                                  b.bookingNumber.toUpperCase() === bookingSearchQuery.trim().toUpperCase()
+                              ) || bookingFilteredResults[0];
+                            applyBookingData(exact);
+                            setBookingSearchQuery(exact.bookingNumber);
+                            setIsBookingDropdownOpen(false);
+                            setIsDirty(true);
+                          }
+                        }
+                      }}
+                      placeholder="Search Booking No only..."
+                      className="w-full pl-8 pr-7 py-1.5 text-xs bg-white border border-sky-300 rounded text-slate-900 font-mono font-semibold focus:outline-none focus:ring-2 focus:ring-sky-500"
+                    />
+                    {bookingSearchQuery && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setBookingSearchQuery('');
+                          setIsBookingDropdownOpen(true);
+                        }}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                        title="Clear booking search"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+
+                    {isBookingDropdownOpen && (
+                      <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-sky-300 rounded-lg shadow-xl z-40 max-h-56 overflow-y-auto divide-y divide-slate-100">
+                        {bookingFilteredResults.length === 0 ? (
+                          <div className="px-3 py-2.5 text-[11px] text-slate-500 italic">
+                            No booking found matching Booking No &ldquo;{bookingSearchQuery}&rdquo;. You can still enter a manual invoice below.
+                          </div>
+                        ) : (
+                          bookingFilteredResults.map((b) => (
+                            <button
+                              key={b.id}
+                              type="button"
+                              onClick={() => {
+                                applyBookingData(b);
+                                setBookingSearchQuery(b.bookingNumber);
+                                setIsBookingDropdownOpen(false);
+                                setIsDirty(true);
+                              }}
+                              className="w-full text-left px-3 py-2 hover:bg-sky-50 transition-colors flex items-center justify-between gap-2"
+                            >
+                              <span className="font-mono font-bold text-sky-900 text-xs">
+                                {b.bookingNumber}
+                              </span>
+                              <span className="text-[11px] text-slate-500 truncate">
+                                {b.customerCompany} · {b.pod || b.pody}
+                              </span>
+                            </button>
+                          ))
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+            <div className="text-[10.5px] text-sky-800/80 font-medium">
+              Optional quick import above (Booking search filters by Booking No only) — or fill fields manually below for a direct invoice.
+            </div>
           </div>
         )}
 

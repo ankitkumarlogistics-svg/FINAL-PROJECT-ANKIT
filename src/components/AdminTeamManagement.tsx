@@ -22,6 +22,7 @@ import {
   Download,
   CheckCircle2,
   Loader2,
+  Pencil,
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { downloadElementAsPdf } from '../utils/pdfExport';
@@ -56,10 +57,15 @@ export const AdminTeamManagement: React.FC<AdminTeamManagementProps> = ({
   const [newRole, setNewRole] = useState<UserRole>('STAFF');
   const [newDepartment, setNewDepartment] = useState('Documentation & Logistics');
 
-  // Password reset modal
-  const [resetModalUser, setResetModalUser] = useState<AppUser | null>(null);
-  const [resetNewPassword, setResetNewPassword] = useState('');
-  const [showResetPassword, setShowResetPassword] = useState(false);
+  // Edit Account (User ID, Profile, Role & Password) modal
+  const [editAccountUser, setEditAccountUser] = useState<AppUser | null>(null);
+  const [editUserId, setEditUserId] = useState('');
+  const [editName, setEditName] = useState('');
+  const [editDepartment, setEditDepartment] = useState('');
+  const [editRole, setEditRole] = useState<UserRole>('STAFF');
+  const [editPassword, setEditPassword] = useState('');
+  const [showEditPassword, setShowEditPassword] = useState(false);
+  const [editFormError, setEditFormError] = useState<string | null>(null);
 
   // PDF Export
   const [isExportingPdf, setIsExportingPdf] = useState(false);
@@ -89,7 +95,7 @@ export const AdminTeamManagement: React.FC<AdminTeamManagementProps> = ({
   }, [isAddDirty]);
 
   useEffect(() => {
-    if (!isAddModalOpen && !resetModalUser && !deletingUser) return;
+    if (!isAddModalOpen && !editAccountUser && !deletingUser) return;
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         e.stopPropagation();
@@ -97,8 +103,8 @@ export const AdminTeamManagement: React.FC<AdminTeamManagementProps> = ({
           setShowDiscardConfirm(false);
         } else if (deletingUser) {
           setDeletingUser(null);
-        } else if (resetModalUser) {
-          setResetModalUser(null);
+        } else if (editAccountUser) {
+          setEditAccountUser(null);
         } else if (isAddModalOpen) {
           attemptCloseAddModal();
         }
@@ -106,7 +112,7 @@ export const AdminTeamManagement: React.FC<AdminTeamManagementProps> = ({
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isAddModalOpen, resetModalUser, deletingUser, showDiscardConfirm, attemptCloseAddModal]);
+  }, [isAddModalOpen, editAccountUser, deletingUser, showDiscardConfirm, attemptCloseAddModal]);
 
   const showNotification = (msg: string) => {
     setNotification(msg);
@@ -183,19 +189,59 @@ export const AdminTeamManagement: React.FC<AdminTeamManagementProps> = ({
     showNotification(`Account ${user.userId} is now ${nextStatus}.`);
   };
 
-  const handleConfirmResetPassword = (e: React.FormEvent) => {
+  const openEditAccountModal = (user: AppUser) => {
+    setEditAccountUser(user);
+    setEditUserId(user.userId);
+    setEditName(user.name);
+    setEditDepartment(user.department || '');
+    setEditRole(user.role);
+    setEditPassword('');
+    setShowEditPassword(false);
+    setEditFormError(null);
+  };
+
+  const handleConfirmEditAccount = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!resetModalUser || !resetNewPassword.trim()) return;
+    if (!editAccountUser) return;
+
+    const cleanId = editUserId.trim().toLowerCase().replace(/\s+/g, '');
+    const cleanName = editName.trim();
+    const cleanPassword = editPassword.trim();
+
+    if (!cleanId || !cleanName) {
+      setEditFormError('Login User ID and Full Name are required.');
+      return;
+    }
+
+    const duplicate = users.find(
+      (u) => u.id !== editAccountUser.id && u.userId.toLowerCase() === cleanId
+    );
+    if (duplicate) {
+      setEditFormError(`User ID "${cleanId}" is already assigned to ${duplicate.name}.`);
+      return;
+    }
+
+    const isSelf = editAccountUser.id === currentUser?.id;
+    const nextRole: UserRole = isSelf ? editAccountUser.role : editRole;
 
     onUpdateUser({
-      ...resetModalUser,
-      password: resetNewPassword.trim(),
+      ...editAccountUser,
+      userId: cleanId,
+      name: cleanName,
+      department: editDepartment.trim(),
+      role: nextRole,
+      password: cleanPassword ? cleanPassword : editAccountUser.password,
     });
 
-    showNotification(`Access key for ${resetModalUser.userId} updated securely in Cloud Firestore!`);
-    setResetModalUser(null);
-    setResetNewPassword('');
-    setShowResetPassword(false);
+    showNotification(
+      cleanPassword
+        ? `ID & password updated for "${cleanId}" and saved to Cloud Firestore!`
+        : `Account details updated for "${cleanId}" in Cloud Firestore!`
+    );
+    setEditAccountUser(null);
+    setEditPassword('');
+    setShowEditPassword(false);
+    setEditFormError(null);
   };
 
   const handleDelete = (user: AppUser) => {
@@ -319,16 +365,16 @@ export const AdminTeamManagement: React.FC<AdminTeamManagementProps> = ({
         </div>
       )}
 
-      {/* Security Privacy Notice Badge */}
-      <div className="bg-sky-50/70 border border-sky-200 rounded-xl p-3.5 flex items-center justify-between text-xs text-sky-900 gap-3">
-        <div className="flex items-center gap-2.5">
-          <Lock className="w-4 h-4 text-sky-700 shrink-0" />
+      {/* Security Privacy Notice & Quick How-To */}
+      <div className="bg-sky-50/70 border border-sky-200 rounded-xl p-3.5 flex flex-col sm:flex-row sm:items-center justify-between text-xs text-sky-900 gap-2.5">
+        <div className="flex items-start sm:items-center gap-2.5">
+          <Lock className="w-4 h-4 text-sky-700 shrink-0 mt-0.5 sm:mt-0" />
           <span>
-            <strong>Cloud Privacy Guard:</strong> Plaintext passwords are not displayed on screen. All authentication hashes are stored securely in your private Cloud Firestore instance.
+            <strong>How to Change ID &amp; Password:</strong> Click <strong>Edit ID &amp; Key</strong> on your Admin row (marked &ldquo;You&rdquo;) or any staff row to update Login ID, Name, Role, or Password. Use <strong>Add Team Member</strong> to create separate logins for other team staff.
           </span>
         </div>
         <span className="hidden sm:inline-block px-2.5 py-0.5 rounded-full bg-sky-100 text-sky-800 font-mono text-[10px] font-bold shrink-0">
-          AES-256 Cloud Shield
+          Cloud Firestore Synced
         </span>
       </div>
 
@@ -451,15 +497,11 @@ export const AdminTeamManagement: React.FC<AdminTeamManagementProps> = ({
                   <div className="flex items-center gap-1.5">
                     <button
                       type="button"
-                      onClick={() => {
-                        setResetModalUser(u);
-                        setResetNewPassword(handleGeneratePassword());
-                        setShowResetPassword(false);
-                      }}
-                      className="px-2.5 py-1 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded flex items-center gap-1"
+                      onClick={() => openEditAccountModal(u)}
+                      className="px-2.5 py-1 text-xs font-semibold text-sky-800 bg-sky-50 hover:bg-sky-100 border border-sky-200 rounded flex items-center gap-1"
                     >
-                      <KeyRound className="w-3.5 h-3.5 text-slate-500" />
-                      Password
+                      <KeyRound className="w-3.5 h-3.5 text-sky-700" />
+                      Edit ID &amp; Key
                     </button>
                     {!isSelf && (
                       <button
@@ -573,19 +615,15 @@ export const AdminTeamManagement: React.FC<AdminTeamManagementProps> = ({
                     {/* Actions */}
                     <td className="py-3.5 px-4 text-right">
                       <div className="flex items-center justify-end gap-1.5">
-                        {/* Reset Password */}
+                        {/* Edit ID & Password */}
                         <button
                           type="button"
-                          onClick={() => {
-                            setResetModalUser(u);
-                            setResetNewPassword(handleGeneratePassword());
-                            setShowResetPassword(false);
-                          }}
-                          className="px-2 py-1 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded flex items-center gap-1 transition-colors"
-                          title="Change or reset password"
+                          onClick={() => openEditAccountModal(u)}
+                          className="px-2.5 py-1 text-xs font-semibold text-sky-800 bg-sky-50 hover:bg-sky-100 border border-sky-200 rounded flex items-center gap-1 transition-colors"
+                          title="Edit User ID, Name, Role, or Password"
                         >
-                          <KeyRound className="w-3.5 h-3.5 text-slate-500" />
-                          Change Key
+                          <Pencil className="w-3.5 h-3.5 text-sky-700" />
+                          Edit ID &amp; Key
                         </button>
 
                         {/* Remove / Delete User */}
@@ -757,82 +795,161 @@ export const AdminTeamManagement: React.FC<AdminTeamManagementProps> = ({
         </div>
       )}
 
-      {/* MODAL 2: RESET PASSWORD */}
-      {resetModalUser && (
+      {/* MODAL 2: EDIT USER ID, PROFILE & PASSWORD */}
+      {editAccountUser && (
         <div
           className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-6 overflow-y-auto"
           onClick={(e) => {
-            if (e.target === e.currentTarget) setResetModalUser(null);
+            if (e.target === e.currentTarget) setEditAccountUser(null);
           }}
         >
           <div
-            className="bg-white rounded-xl shadow-2xl border border-slate-200 w-full max-w-sm my-auto overflow-hidden"
+            className="bg-white rounded-xl shadow-2xl border border-slate-200 w-full max-w-md my-auto overflow-hidden"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between px-5 py-3.5 border-b border-slate-200 bg-slate-50">
-              <h3 className="text-sm font-bold text-slate-900">
-                Change Password for {resetModalUser.userId}
-              </h3>
+              <div className="flex items-center gap-2">
+                <KeyRound className="w-4 h-4 text-sky-700" />
+                <h3 className="text-sm font-bold text-slate-900">
+                  Edit ID &amp; Password ({editAccountUser.userId})
+                </h3>
+              </div>
               <button
                 type="button"
-                onClick={() => setResetModalUser(null)}
-                className="text-slate-400 hover:text-slate-600"
-                aria-label="Close reset password modal"
+                onClick={() => setEditAccountUser(null)}
+                className="text-slate-400 hover:text-slate-600 p-1"
+                aria-label="Close edit account modal"
               >
                 ✕
               </button>
             </div>
 
-            <form onSubmit={handleConfirmResetPassword} className="p-5 space-y-4">
+            <form onSubmit={handleConfirmEditAccount} className="p-5 space-y-3.5">
+              {editFormError && (
+                <div className="p-2.5 bg-rose-50 border border-rose-200 text-rose-800 rounded-lg text-xs font-semibold flex items-center gap-2">
+                  <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
+                  <span>{editFormError}</span>
+                </div>
+              )}
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  Login User ID *
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={editUserId}
+                  onChange={(e) => {
+                    setEditUserId(e.target.value.toLowerCase().replace(/\s+/g, ''));
+                    setEditFormError(null);
+                  }}
+                  placeholder="e.g. ankit_admin"
+                  className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-sky-600 font-mono font-bold text-slate-900"
+                  autoFocus
+                />
+                <span className="text-[10px] text-slate-500 mt-0.5 block">
+                  Username used on the Login screen (spaces removed automatically).
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    Full Name *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={editName}
+                    onChange={(e) => setEditName(e.target.value)}
+                    className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-sky-600 font-semibold"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    Department / Office
+                  </label>
+                  <input
+                    type="text"
+                    value={editDepartment}
+                    onChange={(e) => setEditDepartment(e.target.value)}
+                    className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-sky-600"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  Access Role
+                </label>
+                <select
+                  value={editRole}
+                  disabled={editAccountUser.id === currentUser?.id}
+                  onChange={(e) => setEditRole(e.target.value as UserRole)}
+                  className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-sky-600 font-semibold disabled:bg-slate-100 disabled:text-slate-500"
+                >
+                  <option value="STAFF">Staff Operator (Create/View Shipments &amp; Invoices)</option>
+                  <option value="ADMIN">Super Admin (Full Control &amp; Team Management)</option>
+                </select>
+                {editAccountUser.id === currentUser?.id && (
+                  <span className="text-[10px] text-sky-700 mt-0.5 block">
+                    Your active Super Admin role stays locked so you don&apos;t lock yourself out.
+                  </span>
+                )}
+              </div>
+
               <div>
                 <div className="flex items-center justify-between mb-1">
                   <label className="block text-xs font-bold text-slate-700">
-                    New Password
+                    New Password (Optional)
                   </label>
                   <button
                     type="button"
-                    onClick={() => setResetNewPassword(handleGeneratePassword())}
+                    onClick={() => {
+                      setEditPassword(handleGeneratePassword());
+                      setShowEditPassword(true);
+                    }}
                     className="text-[11px] text-sky-700 hover:underline flex items-center gap-1 font-semibold"
                   >
-                    <Sparkles className="w-3 h-3" /> Auto
+                    <Sparkles className="w-3 h-3" /> Auto Generate
                   </button>
                 </div>
                 <div className="relative">
                   <input
-                    type={showResetPassword ? 'text' : 'password'}
-                    required
-                    value={resetNewPassword}
-                    onChange={(e) => setResetNewPassword(e.target.value)}
+                    type={showEditPassword ? 'text' : 'password'}
+                    value={editPassword}
+                    onChange={(e) => setEditPassword(e.target.value)}
+                    placeholder="Leave blank to keep existing password"
                     className="w-full pl-3 pr-10 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-sky-600 font-mono font-bold"
-                    autoFocus
                   />
                   <button
                     type="button"
-                    onClick={() => setShowResetPassword(!showResetPassword)}
+                    onClick={() => setShowEditPassword(!showEditPassword)}
                     className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-600"
-                    title={showResetPassword ? 'Mask password' : 'Show password'}
+                    title={showEditPassword ? 'Mask password' : 'Show password'}
                   >
-                    {showResetPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    {showEditPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                   </button>
                 </div>
-                <span className="text-[10px] text-slate-400 mt-1 block">
-                  New password will update immediately in Cloud Firestore.
+                <span className="text-[10px] text-slate-500 mt-1 block">
+                  Changes sync immediately to Cloud Firestore across all devices.
                 </span>
               </div>
 
-              <div className="pt-2 flex justify-end gap-2">
+              <div className="pt-2 border-t border-slate-200 flex justify-end gap-2">
                 <button
                   type="button"
-                  onClick={() => setResetModalUser(null)}
-                  className="px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-lg"
+                  onClick={() => setEditAccountUser(null)}
+                  className="px-3.5 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-lg"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-1.5 text-xs font-bold text-white bg-sky-700 hover:bg-sky-800 rounded-lg shadow-sm"
+                  className="px-4 py-2 text-xs font-bold text-white bg-sky-700 hover:bg-sky-800 rounded-lg shadow-sm"
                 >
-                  Update & Encrypt
+                  Save ID &amp; Password
                 </button>
               </div>
             </form>
