@@ -986,7 +986,7 @@ export default function App() {
       id: `inv-${Date.now()}`,
       invoiceNo: `YTL-FI-${randomNum}`,
       date: new Date().toISOString().slice(0, 10),
-      paymentDueDate: new Date(Date.now() + 21 * 86400000).toISOString().slice(0, 10),
+      paymentDueDate: new Date(Date.now() + 5 * 86400000).toISOString().slice(0, 10),
       status: 'PENDING',
       amountReceivedJpy: 0,
       outstandingBalanceJpy: invoice.grandTotalJpy,

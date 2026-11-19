@@ -61,6 +61,42 @@ const ACTUAL_COST_CATEGORIES = [
   'Other Carrier Cost',
 ];
 
+const getLocalIsoDate = (d: Date = new Date()): string => {
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+const addDaysToDate = (baseDateStr?: string, days = 5): string => {
+  const raw = (baseDateStr || '').trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
+    const [y, m, d] = raw.split('-').map(Number);
+    const dt = new Date(y, m - 1, d);
+    dt.setDate(dt.getDate() + days);
+    return getLocalIsoDate(dt);
+  }
+  if (raw) {
+    const parsed = new Date(raw);
+    if (!isNaN(parsed.getTime())) {
+      parsed.setDate(parsed.getDate() + days);
+      return getLocalIsoDate(parsed);
+    }
+  }
+  const fallback = new Date();
+  fallback.setDate(fallback.getDate() + days);
+  return getLocalIsoDate(fallback);
+};
+
+const parseValidIsoDate = (dateStr?: string): string | null => {
+  const raw = (dateStr || '').trim();
+  if (!raw) return null;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw;
+  const parsed = new Date(raw);
+  if (isNaN(parsed.getTime())) return null;
+  return getLocalIsoDate(parsed);
+};
+
 export const InvoiceFormModal: React.FC<InvoiceFormModalProps> = ({
   isOpen,
   onClose,
@@ -74,11 +110,13 @@ export const InvoiceFormModal: React.FC<InvoiceFormModalProps> = ({
   prefillFromQuotation,
   initialFocusSection = 'billing',
 }) => {
-  const [formData, setFormData] = useState<Partial<FreightInvoice>>({
-    invoiceNo: '',
-    date: new Date().toISOString().slice(0, 10),
-    paymentDueDate: new Date(Date.now() + 21 * 86400000).toISOString().slice(0, 10),
-    status: 'PENDING',
+  const [formData, setFormData] = useState<Partial<FreightInvoice>>(() => {
+    const today = getLocalIsoDate();
+    return {
+      invoiceNo: '',
+      date: today,
+      paymentDueDate: addDaysToDate(today, 5),
+      status: 'PENDING',
     customerName: '',
     customerAddress: '',
     portFrom: '',
@@ -105,6 +143,7 @@ export const InvoiceFormModal: React.FC<InvoiceFormModalProps> = ({
     quotationNo: '',
     linkedQuotationId: '',
     actualShippingCostJpy: 0,
+    };
   });
 
   const [items, setItems] = useState<InvoiceItem[]>([]);
@@ -112,6 +151,7 @@ export const InvoiceFormModal: React.FC<InvoiceFormModalProps> = ({
   const [directActualCostJpy, setDirectActualCostJpy] = useState<number>(0);
   const [bookingSearchQuery, setBookingSearchQuery] = useState('');
   const [isBookingDropdownOpen, setIsBookingDropdownOpen] = useState(false);
+  const [isDueDateManual, setIsDueDateManual] = useState(false);
   const [isDirty, setIsDirty] = useState(false);
   const [showUnsavedPrompt, setShowUnsavedPrompt] = useState(false);
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
@@ -221,6 +261,7 @@ export const InvoiceFormModal: React.FC<InvoiceFormModalProps> = ({
     setShowUnsavedPrompt(false);
     setBookingSearchQuery('');
     setIsBookingDropdownOpen(false);
+    setIsDueDateManual(Boolean(initialData));
     if (initialData) {
       setFormData(initialData);
       setItems(initialData.items || []);
@@ -239,10 +280,11 @@ export const InvoiceFormModal: React.FC<InvoiceFormModalProps> = ({
       setDirectActualCostJpy(0);
     } else {
       const randomNum = Math.floor(100000 + Math.random() * 900000);
+      const today = getLocalIsoDate();
       setFormData({
         invoiceNo: `YTL-FI-${randomNum}`,
-        date: new Date().toISOString().slice(0, 10),
-        paymentDueDate: '',
+        date: today,
+        paymentDueDate: addDaysToDate(today, 5),
         status: 'UNPAID',
         customerName: '',
         customerAddress: '',
@@ -344,11 +386,13 @@ export const InvoiceFormModal: React.FC<InvoiceFormModalProps> = ({
 
   const applyQuotationData = (q: Quotation) => {
     const randomNum = Math.floor(100000 + Math.random() * 900000);
+    const today = getLocalIsoDate();
+    setIsDueDateManual(false);
     setFormData((prev) => ({
       ...prev,
       invoiceNo: prev.invoiceNo || `YTL-FI-${randomNum}`,
-      date: new Date().toISOString().slice(0, 10),
-      paymentDueDate: new Date(Date.now() + 21 * 86400000).toISOString().slice(0, 10),
+      date: today,
+      paymentDueDate: addDaysToDate(today, 5),
       status: 'PENDING',
       customerName: q.customerName,
       customerAddress: q.customerAddress || 'TOKYO, JAPAN',
@@ -383,6 +427,8 @@ export const InvoiceFormModal: React.FC<InvoiceFormModalProps> = ({
 
   const applyBookingData = (booking: BookingConfirmation) => {
     const randomNum = Math.floor(100000 + Math.random() * 900000);
+    const today = getLocalIsoDate();
+    setIsDueDateManual(false);
     // Parse container count from booking.containerCount or from cargoVolumeSize (e.g. "3 X 40' Dry High")
     const matchCount = booking.cargoVolumeSize?.match(/(\d+)\s*X/i);
     const parsedCount = booking.containerCount || (matchCount ? parseInt(matchCount[1]) : 1);
@@ -401,8 +447,8 @@ export const InvoiceFormModal: React.FC<InvoiceFormModalProps> = ({
     setFormData((prev) => ({
       ...prev,
       invoiceNo: prev.invoiceNo || `YTL-FI-${randomNum}`,
-      date: new Date().toISOString().slice(0, 10),
-      paymentDueDate: new Date(Date.now() + 22 * 86400000).toISOString().slice(0, 10),
+      date: today,
+      paymentDueDate: addDaysToDate(today, 5),
       status: 'PENDING',
       customerName: booking.customerCompany,
       customerAddress:
@@ -924,20 +970,60 @@ export const InvoiceFormModal: React.FC<InvoiceFormModalProps> = ({
               <input
                 type="date"
                 value={formData.date || ''}
-                onChange={(e) => handleFieldChange('date', e.target.value)}
+                onChange={(e) => {
+                  const nextDate = e.target.value;
+                  setIsDirty(true);
+                  setFormData((prev) => ({
+                    ...prev,
+                    date: nextDate,
+                    ...(!isDueDateManual && nextDate
+                      ? { paymentDueDate: addDaysToDate(nextDate, 5) }
+                      : {}),
+                  }));
+                }}
                 className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-sky-500"
               />
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-rose-700 mb-1">
-                Payment Due Date *
-              </label>
+              <div className="flex items-center justify-between gap-1 mb-1">
+                <label className="block text-xs font-semibold text-rose-700">
+                  Payment Due Date *
+                </label>
+                <div className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsDueDateManual(false);
+                      handleFieldChange('paymentDueDate', addDaysToDate(formData.date, 5));
+                    }}
+                    className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-rose-100 text-rose-800 hover:bg-rose-200 border border-rose-200 transition-colors"
+                    title="Set Due Date to 5 days from Invoice Date"
+                  >
+                    +5 Days
+                  </button>
+                  {parseValidIsoDate(formData.etd) && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsDueDateManual(true);
+                        handleFieldChange('paymentDueDate', addDaysToDate(formData.etd, 5));
+                      }}
+                      className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-sky-100 text-sky-800 hover:bg-sky-200 border border-sky-200 transition-colors"
+                      title="Set Due Date to 5 days from ETD"
+                    >
+                      ETD +5d
+                    </button>
+                  )}
+                </div>
+              </div>
               <input
                 type="date"
-                
                 value={formData.paymentDueDate || ''}
-                onChange={(e) => handleFieldChange('paymentDueDate', e.target.value)}
+                onChange={(e) => {
+                  setIsDueDateManual(true);
+                  handleFieldChange('paymentDueDate', e.target.value);
+                }}
                 className="w-full px-3 py-2 text-sm border border-rose-300 bg-rose-50/40 rounded-lg focus:ring-2 focus:ring-rose-500 font-semibold"
               />
             </div>
